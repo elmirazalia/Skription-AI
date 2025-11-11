@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skription AI- Ringkasan Skripsi</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Wavy Background -->
+    <div class="wavy-bg">
+        <div class="wave wave-1"></div>
+        <div class="wave wave-2"></div>
+        <div class="wave wave-3"></div>
+    </div>
+
+    <div class="container">
+        <header class="header">
+            <h1>📖 Skription AI</h1>
+            <p>Unggah dokumen Skripsi PDF dan dapatkan ringkasan per bab dengan kecerdasan buatan</p>
+        </header>
+
+        <main class="upload-section">
+            <!-- Drag & Drop Area -->
+            <div class="upload-area" id="dropZone">
+                <div class="upload-icon">📁</div>
+                <h3>Seret & Lepas File PDF di Sini</h3>
+                <p>Atau klik tombol di bawah untuk memilih file dari komputer Anda</p>
+                <button class="browse-btn" id="browseButton">Jelajahi File</button>
+                <input type="file" id="fileInput" accept=".pdf" hidden>
+            </div>
+
+            <!-- Upload Progress List -->
+            <div class="upload-list" id="uploadList">
+                <!-- File items akan ditambahkan dynamically -->
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+                <button class="btn-primary" id="processBtn">Proses Ringkasan</button>
+                <button class="btn-secondary" id="clearBtn">Bersihkan Semua</button>
+            </div>
+        </main>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
