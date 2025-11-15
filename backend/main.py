@@ -8,13 +8,10 @@ import re, os, string, math, asyncio, time, json, requests
 from typing import List, Dict, Any
 from datetime import datetime
 
-# 🌈 COLOR LOGGING
 from colorama import Fore, Style, init as colorama_init
 colorama_init(autoreset=True)
 
-# ===============================================================
 # CONFIG & PARAMETER
-# ===============================================================
 OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", "http://localhost:11434/api/generate")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma2:9b")
 
@@ -24,9 +21,7 @@ RETRY_BASE_DELAY = 0.8
 OLLAMA_TIMEOUT = 180
 MAX_INPUT_CHARS = 50000
 
-# ===============================================================
 # PDF TEXT EXTRACTION
-# ===============================================================
 def read_pdf_text(path: str) -> str:
     text = ""
     try:
@@ -127,9 +122,7 @@ def remove_bab_intro_paragraph(text: str) -> str:
 
     return text
     
-# ===============================================================
 # SPLIT BAB
-# ===============================================================
 def split_by_bab(text: str):
     # Buang elemen non-bab
     text = re.sub(r"DAFTAR\s+ISI.*?(?=BAB\s+I\b|BAB\s+1\b)", "", text, flags=re.DOTALL | re.IGNORECASE)
@@ -224,9 +217,7 @@ def split_by_bab(text: str):
 
     return final
 
-# ===============================================================
 # UTIL: Tokenisasi & Ringkasan Ekstraktif Lokal
-# ===============================================================
 STOPWORDS = set("yang dan di ke dari untuk pada adalah dengan dalam ini itu serta juga tidak dapat atau oleh bagi agar sudah akan para sebagai tersebut karena maka sehingga terhadap serta olehnya".split())
 PUNCT = str.maketrans("", "", string.punctuation)
 
@@ -253,9 +244,7 @@ def summarize_text_extractive(text: str, max_sent: int = 8) -> str:
     top_idx = sorted(range(N), key=lambda i: scores[i], reverse=True)[:max_sent]
     return " ".join([sents[i] for i in sorted(top_idx)])
 
-# ===============================================================
 # PROMPT TEMPLATE
-# ===============================================================
 SUM_PROMPT_TEMPLATE = (
     "Tugas kamu adalah merangkum isi BAB dari dokumen ilmiah secara akademik. "
     "Abaikan semua teks yang tidak relevan dengan isi BAB.\n\n"
@@ -272,9 +261,7 @@ SUM_PROMPT_TEMPLATE = (
     "RINGKASAN:\n"
 )
 
-# ===============================================================
 # OLLAMA CLIENT DENGAN LOG WARNA
-# ===============================================================
 def _ollama_generate(prompt: str) -> str:
     try:
         payload = {"model": OLLAMA_MODEL, "prompt": prompt, "stream": False}
@@ -310,9 +297,7 @@ async def ollama_summarize_async(content: str, semaphore: asyncio.Semaphore) -> 
                 print(f"{Fore.RED}[FALLBACK]{Style.RESET_ALL} Semua percobaan gagal, pakai ringkasan lokal (TF-IDF).")
                 return summarize_text_extractive(content, max_sent=7)
 
-# ===============================================================
 # RINGKAS PDF PER BAB
-# ===============================================================
 def compress_for_prompt(text: str, max_chars: int = MAX_INPUT_CHARS) -> str:
     if len(text) <= max_chars:
         return text
@@ -354,9 +339,7 @@ async def summarize_pdf_per_bab(path: str):
     results = await summarize_sections_parallel(sections)
     return {"file": os.path.basename(path), "sections": results}
 
-# ===============================================================
 # EKSPOR DOCX & PDF
-# ===============================================================
 from docx import Document
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
@@ -382,9 +365,7 @@ def export_all(data, out_docx, out_pdf):
         elements.append(Spacer(1, 12))
     pdf.build(elements)
 
-# ===============================================================
 # FASTAPI APP
-# ===============================================================
 app = FastAPI(title="DocuSum AI (Ollama)", version="9.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
@@ -419,9 +400,7 @@ async def download_file(filename: str):
         raise HTTPException(status_code=404, detail="File tidak ditemukan")
     return FileResponse(file_path, filename=filename)
 
-# ===============================================================
 # KOMENTAR GLOBAL
-# ===============================================================
 COMMENTS_FILE = Path("comments.json")
 
 def load_comments() -> list:
