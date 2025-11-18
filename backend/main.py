@@ -246,19 +246,23 @@ def summarize_text_extractive(text: str, max_sent: int = 8) -> str:
 
 # PROMPT TEMPLATE
 SUM_PROMPT_TEMPLATE = (
-    "Tugas kamu adalah merangkum isi BAB dari dokumen ilmiah secara akademik. "
-    "Abaikan semua teks yang tidak relevan dengan isi BAB.\n\n"
-    "PANDUAN ISI PER BAB:\n"
-    "- BAB 1: latar belakang, rumusan masalah, tujuan, manfaat, ruang lingkup.\n"
-    "- BAB 2: teori utama, konsep penting, penelitian terdahulu, kerangka pemikiran.\n"
-    "- BAB 3: metode penelitian, data/sampel, teknik analisis.\n"
-    "- BAB 4: hasil penelitian dan analisis pembahasan.\n"
-    "- BAB 5: kesimpulan penelitian dan saran.\n\n"
-    "WAJIB DIBUANG:\n"
-    "- URL, referensi, daftar pustaka, nama penulis, tahun, nomor tabel/gambar.\n\n"
-    "Gunakan bahasa ilmiah mengalir, 1–3 paragraf.\n\n"
+    "Tugas kamu adalah merangkum sebuah BAB dari skripsi secara akademik, ringkas, dan tidak repetitif.\n\n"
+    "⚠️ ATURAN PENTING:\n"
+    "- Jangan mengulang teks dari input.\n"
+    "- Jangan membuat dua paragraf yang maknanya sama.\n"
+    "- Jangan menyebut 'Bab ini membahas...' atau kalimat pembuka deskriptif.\n"
+    "- Hilangkan referensi, kutipan tahun, nomor tabel/gambar, nama lembaga.\n"
+    "- Ambil hanya inti ilmiah.\n\n"
+    "FORMAT WAJIB:\n"
+    "1–2 paragraf ringkasan ilmiah sesuai fungsi BAB:\n"
+    "- BAB I → latar belakang + masalah + tujuan\n"
+    "- BAB II → teori penting + konsep utama + kerangka teori\n"
+    "- BAB III → metode + data + analisis\n"
+    "- BAB IV → hasil + analisis pembahasan\n"
+    "- BAB V → kesimpulan + saran\n\n"
+    "Gunakan bahasa ilmiah yang mengalir dan padat.\n\n"
     "TEKS SUMBER:\n\"\"\"{content}\"\"\"\n\n"
-    "RINGKASAN:\n"
+    "RINGKASAN:"
 )
 
 # OLLAMA CLIENT DENGAN LOG WARNA
@@ -307,15 +311,37 @@ def compress_for_prompt(text: str, max_chars: int = MAX_INPUT_CHARS) -> str:
 
 async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Dict[str, Any]]:
     semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
+
     async def _process(sec):
-        isi = (sec.get("isi") or "").strip()
-        paragraf = [p.strip() for p in isi.split("\n") if len(p.strip()) > 40]
-        if not paragraf:
-            return {"judul": sec.get("judul", ""), "ringkasan_bab": ""}
-        isi_bersih = clean_reference_noise("\n".join(paragraf[:70]))
-        compressed = compress_for_prompt(isi_bersih, MAX_INPUT_CHARS)
-        summary = await ollama_summarize_async(compressed, semaphore)
-        return {"judul": sec.get("judul", ""), "ringkasan_bab": summary}
+        teks = (sec.get("isi") or "").strip()
+        if len(teks) < 80:
+            return {"judul": sec["judul"], "ringkasan_bab": ""}
+
+        # bersihkan repetisi, buang intro BAB
+        paragraphs = [p.strip() for p in teks.split("\n") if len(p.strip()) > 40]
+        isi_bersih = remove_bab_intro_paragraph("\n".join(paragraphs))
+        isi_bersih = clean_reference_noise(isi_bersih)
+
+        # kompres jika > batas
+        isi_kompres = compress_for_prompt(isi_bersih, MAX_INPUT_CHARS)
+
+        # panggil Ollama
+        summary = await ollama_summarize_async(isi_kompres, semaphore)
+        summary = summary.strip()
+
+        # bersihkan output LLM dari repetisi dua paragraf sama
+        out_paras = [p.strip() for p in summary.split("\n") if p.strip()]
+        unique = []
+        seen = set()
+        for p in out_paras:
+            k = p[:70].lower()
+            if k not in seen:
+                seen.add(k)
+                unique.append(p)
+        final_summary = "\n\n".join(unique)
+
+        return {"judul": sec["judul"], "ringkasan_bab": final_summary}
+
     return await asyncio.gather(*[asyncio.create_task(_process(sec)) for sec in sections])
 
 def detect_non_thesis(text: str) -> bool:
@@ -435,3 +461,4 @@ async def post_comment(comment: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
