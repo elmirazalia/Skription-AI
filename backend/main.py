@@ -13,7 +13,7 @@ colorama_init(autoreset=True)
 
 # CONFIG & PARAMETER
 OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", "http://localhost:11434/api/generate")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma2:9b")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:14b")
 
 MAX_CONCURRENCY = 10
 MAX_RETRIES = 4
@@ -369,12 +369,10 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
 
         # TLDR
         tldr_prompt = (
-            "Buat TLDR satu kalimat yang menyampaikan ide paling inti dari bab ini. 
-            TLDR harus lebih abstrak dan lebih singkat daripada ringkasan, 
-            bukan parafrase atau kompresi kalimat dari ringkasan. 
-            Gunakan sudut pandang lebih tinggi (big picture). 
-            Hanya ambil konsep inti, bukan detail."
-
+            "Buat satu kalimat TLDR yang sangat padat mengenai inti bab. "
+            "Jangan mengulang kalimat dari ringkasan. "
+            "Jangan mulai dengan 'Bab ini'. "
+            "Langsung ke esensi ilmiah.\n\n"
             f"TEKS RINGKASAN:\n{final_summary}\n\n"
             "TLDR:"
         )
@@ -511,3 +509,4 @@ async def post_comment(comment: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
