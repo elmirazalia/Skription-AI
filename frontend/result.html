@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="styles.css" />
 
   <style>
-    /* ==== EXTRA STYLING UNTUK FITUR BARU (A) ==== */
+    /* ==== FITUR TAMBAHAN RINGKASAN (A) ==== */
     .top-controls {
       display: flex;
       gap: 10px;
@@ -94,11 +94,129 @@
       padding: 4px 6px;
       border-radius: 6px;
     }
+
+    /* ====== COMMENT BOX PERSIS VERSI LAMA ====== */
+    .comment-section {
+      backdrop-filter: blur(10px);
+      background: rgba(255, 255, 255, 0.45);
+      border-radius: 12px;
+      padding: 14px 14px;
+      max-width: 240px;
+      margin: 35px auto;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    }
+
+    .comment-input-container {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+      padding-bottom: 4px;
+    }
+
+    .emoji {
+      font-size: 20px;
+      cursor: pointer;
+      transition: 0.25s;
+    }
+
+    .emoji:hover {
+      transform: scale(1.2);
+    }
+
+    .comment-input-container input {
+      flex: 1;
+      border: none;
+      outline: none;
+      background: transparent;
+      font-size: 14px;
+      padding: 4px;
+    }
+
+    /* EMOJI PICKER */
+    .emoji-picker {
+      display: none;
+      margin-top: 8px;
+      background: white;
+      padding: 8px;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+      font-size: 22px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .emoji-picker span:hover {
+      transform: scale(1.2);
+    }
+
+    .comment-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+      margin-top: 8px;
+      opacity: 0;
+      transition: 0.2s;
+    }
+
+    .comment-actions.show {
+      opacity: 1;
+    }
+
+    .comment-actions button {
+      border: none;
+      background: none;
+      padding: 4px 8px;
+      font-size: 13px;
+      cursor: pointer;
+      border-radius: 6px;
+    }
+
+    .comment-actions #sendBtn {
+      background: #007bff;
+      color: white;
+    }
+
+    /* COMMENT DISPLAY */
+    .comments-display {
+      margin-top: 14px;
+    }
+
+    .comment-item {
+      background: rgba(255, 255, 255, 0.7);
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      font-size: 13px;
+      text-align: left;
+    }
+
+    .comments-nav {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-top: 8px;
+    }
+
+    .nav-btn {
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-size: 18px;
+      color: var(--primary);
+      opacity: 0.65;
+    }
+
+    .nav-btn:hover {
+      opacity: 1;
+      scale: 1.1;
+    }
   </style>
 </head>
 
 <body>
-  <!-- Wave background tetap dari styles.css -->
+  <!-- Wave background lama -->
   <div class="wavy-bg">
     <div class="wave wave-1"></div>
     <div class="wave wave-2"></div>
@@ -112,12 +230,11 @@
       <p class="muted">Hasil ringkasan dokumen Anda:</p>
     </header>
 
-    <!-- Tombol kembali sesuai style lama -->
     <div style="display:flex;justify-content:flex-end;margin-bottom:15px;">
       <a href="index.html" class="btn-secondary">⬅️ Kembali ke Upload</a>
     </div>
 
-    <!-- Tombol fitur A -->
+    <!-- Fitur A -->
     <div class="top-controls">
       <button id="expandAll" class="btn-small">Expand All</button>
       <button id="collapseAll" class="btn-small">Collapse All</button>
@@ -128,21 +245,32 @@
 
     <main id="resultsContainer"></main>
 
-    <br><br>
-
-    <!-- Komentar mini (kode lama tetap) -->
+    <!-- ===============================
+          COMMENT SECTION (exact lama)
+    ================================ -->
     <div class="comment-section">
+
       <div class="comment-input-container">
         <span class="emoji" id="emoji-btn">😊</span>
         <input type="text" id="commentInput" placeholder="Tulis komentar..." />
       </div>
+
+      <!-- Emoji Picker -->
+      <div id="emoji-picker" class="emoji-picker">
+        <span>😀</span> <span>😁</span> <span>😂</span> <span>🤣</span> <span>😊</span>
+        <span>😇</span> <span>🙂</span> <span>🙃</span> <span>😉</span> <span>😍</span>
+        <span>🥰</span> <span>😘</span> <span>😜</span> <span>🤪</span> <span>🤓</span>
+        <span>😎</span> <span>🤩</span> <span>😡</span> <span>😭</span> <span>😱</span>
+        <span>👍</span> <span>👎</span> <span>🙏</span> <span>🎉</span> <span>❤️</span> <span>🔥</span>
+      </div>
+
       <div class="comment-actions">
         <button onclick="cancelComment()">Batal</button>
         <button id="sendBtn" onclick="sendComment()">Kirim</button>
       </div>
 
       <div class="comments-display">
-        <div class="comments-wrapper" id="commentsWrapper"></div>
+        <div id="commentsWrapper"></div>
         <div class="comments-nav">
           <button id="prevBtn" class="nav-btn">←</button>
           <button id="nextBtn" class="nav-btn">→</button>
@@ -151,272 +279,286 @@
     </div>
   </div>
 
-  <script>
-  
-    const BASE_API = location.hostname.includes("localhost")
-      ? "http://localhost:8000"
-      : "https://docusum.onrender.com";
+<script>
+/* =====================================================
+   BASE API AUTO
+===================================================== */
+const BASE_API = location.hostname.includes("localhost")
+  ? "http://localhost:8000"
+  : "https://docusum.onrender.com";
 
-    const container = document.getElementById("resultsContainer");
+const container = document.getElementById("resultsContainer");
 
-    // pembantu
+/* =====================================================
+   TOOLS
+===================================================== */
+function escapeHTML(t = "") {
+  return t.replace(/[&<>"']/g, m =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m])
+  );
+}
 
-    function escapeHTML(t = "") {
-      return t.replace(/[&<>"']/g, m => ({
-        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-      }[m]));
-    }
+function splitSentences(t) {
+  return t.split(/(?<=[.!?])\s+/).map(x => x.trim()).filter(Boolean);
+}
 
-    function splitSentences(text) {
-      return text.split(/(?<=[.!?])\s+/).map(x => x.trim()).filter(Boolean);
-    }
+function makeTLDR(t) {
+  const s = splitSentences(t);
+  return s.slice(0, 2).join(" ");
+}
 
-    function makeTLDR(text) {
-      const sents = splitSentences(text);
-      return sents.slice(0, 2).join(" ");
-    }
+function makeBulletDOM(t) {
+  const ul = document.createElement("ul");
+  splitSentences(t).forEach(s => {
+    const li = document.createElement("li");
+    li.textContent = s;
+    ul.appendChild(li);
+  });
+  return ul;
+}
 
-    function makeBulletDOM(text) {
-      const ul = document.createElement("ul");
-      splitSentences(text).forEach(s => {
-        const li = document.createElement("li");
-        li.textContent = s;
-        ul.appendChild(li);
-      });
-      return ul;
-    }
+/* =====================================================
+   RENDER RINGKASAN
+===================================================== */
+let SHOW_TLDR = true;
+let HIGHLIGHT = false;
 
-    function downloadFile(url) {
-      if (!url.startsWith("http")) url = BASE_API + url;
-      const a = document.createElement("a");
-      a.href = url;
-      a.setAttribute("download", "");
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    }
+function downloadFile(url) {
+  if (!url.startsWith("http")) url = BASE_API + url;
+  const a = document.createElement("a");
+  a.href = url;
+  a.setAttribute("download", "");
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
 
-    // render ringkasan
+function render() {
+  const results = JSON.parse(sessionStorage.getItem("docuSumResults") || "[]");
 
-    let HIGHLIGHT = false;
-    let SHOW_TLDR = true;
+  if (!results.length) {
+    container.innerHTML = `<p style="text-align:center;color:#777;">Belum ada hasil.</p>`;
+    return;
+  }
 
-    function render() {
-      const results = JSON.parse(sessionStorage.getItem("docuSumResults") || "[]");
+  container.innerHTML = "";
 
-      if (!results.length) {
-        container.innerHTML = `<p style="text-align:center;color:#666;">Belum ada hasil.</p>`;
-        return;
-      }
+  results.forEach(doc => {
+    const card = document.createElement("div");
+    card.className = "result-card";
 
-      container.innerHTML = "";
-
-      results.forEach(doc => {
-        const card = document.createElement("div");
-        card.className = "result-card";
-
-        /* HEADER FILE */
-        card.innerHTML = `
-          <div class="file-item">
-            <div class="file-info">
-              <div class="file-icon">📄</div>
-              <div class="file-details">
-                <h4>${escapeHTML(doc.file)}</h4>
-              </div>
-            </div>
-            <div class="file-status">
-              <span class="status-completed">✅ Selesai diproses</span>
-            </div>
+    card.innerHTML = `
+      <div class="file-item">
+        <div class="file-info">
+          <div class="file-icon">📄</div>
+          <div class="file-details">
+            <h4>${escapeHTML(doc.file)}</h4>
           </div>
-        `;
+        </div>
+        <div class="file-status">
+          <span class="status-completed">✅ Selesai diproses</span>
+        </div>
+      </div>
+    `;
 
-        /* Tombol download style lama */
-        const dl = document.createElement("div");
-        dl.className = "download-bar";
+    const dl = document.createElement("div");
+    dl.className = "download-bar";
 
-        if (doc.download_pdf) {
-          const b = document.createElement("button");
-          b.className = "btn-primary";
-          b.textContent = "📥 Download PDF";
-          b.onclick = () => downloadFile(doc.download_pdf);
-          dl.appendChild(b);
-        }
-
-        if (doc.download_docx) {
-          const b2 = document.createElement("button");
-          b2.className = "btn-primary";
-          b2.textContent = "📥 Download DOCX";
-          b2.onclick = () => downloadFile(doc.download_docx);
-          dl.appendChild(b2);
-        }
-
-        card.appendChild(dl);
-
-        /* FRAME BESAR */
-        const big = document.createElement("div");
-        big.className = "big-frame";
-
-        (doc.sections || []).forEach((s, idx) => {
-          if (!s.ringkasan_bab?.trim()) return;
-
-          const section = document.createElement("div");
-          section.className = "section";
-
-          const secHead = document.createElement("div");
-          secHead.className = "sec-head";
-
-          const chev = document.createElement("span");
-          chev.className = "chev open";
-          chev.textContent = "▶";
-
-          const title = document.createElement("h3");
-          title.textContent = s.judul;
-
-          secHead.appendChild(title);
-          secHead.appendChild(chev);
-
-          const content = document.createElement("div");
-          content.className = "sec-content";
-
-          const tldr = document.createElement("div");
-          tldr.className = "tldr";
-          tldr.style.display = SHOW_TLDR ? "block" : "none";
-          tldr.textContent = makeTLDR(s.ringkasan_bab);
-
-          const bullets = document.createElement("div");
-          bullets.className = "bullet-text";
-          bullets.appendChild(makeBulletDOM(s.ringkasan_bab));
-
-          content.appendChild(tldr);
-          content.appendChild(bullets);
-
-          secHead.addEventListener("click", () => {
-            const open = content.style.display !== "none";
-            content.style.display = open ? "none" : "block";
-            chev.classList.toggle("open", !open);
-          });
-
-          section.appendChild(secHead);
-          section.appendChild(content);
-
-          section._content = content;
-          big.appendChild(section);
-        });
-
-        card.appendChild(big);
-        container.appendChild(card);
-      });
+    if (doc.download_pdf) {
+      let b = document.createElement("button");
+      b.className = "btn-primary";
+      b.textContent = "📥 Download PDF";
+      b.onclick = () => downloadFile(doc.download_pdf);
+      dl.appendChild(b);
     }
 
-    /* ============================
-       GLOBAL BUTTONS
-    ============================ */
+    if (doc.download_docx) {
+      let b2 = document.createElement("button");
+      b2.className = "btn-primary";
+      b2.textContent = "📥 Download DOCX";
+      b2.onclick = () => downloadFile(doc.download_docx);
+      dl.appendChild(b2);
+    }
 
-    document.getElementById("expandAll").onclick = () => {
-      document.querySelectorAll(".section").forEach(s => {
-        s._content.style.display = "block";
-        s.querySelector(".chev").classList.add("open");
+    card.appendChild(dl);
+
+    const big = document.createElement("div");
+    big.className = "big-frame";
+
+    (doc.sections || []).forEach(s => {
+      if (!s.ringkasan_bab?.trim()) return;
+
+      const section = document.createElement("div");
+      section.className = "section";
+
+      const secHead = document.createElement("div");
+      secHead.className = "sec-head";
+
+      const chev = document.createElement("span");
+      chev.className = "chev open";
+      chev.textContent = "▶";
+
+      const title = document.createElement("h3");
+      title.textContent = s.judul;
+
+      secHead.appendChild(title);
+      secHead.appendChild(chev);
+
+      const content = document.createElement("div");
+      content.className = "sec-content";
+
+      const tldr = document.createElement("div");
+      tldr.className = "tldr";
+      tldr.style.display = SHOW_TLDR ? "block" : "none";
+      tldr.textContent = makeTLDR(s.ringkasan_bab);
+
+      const bullets = document.createElement("div");
+      bullets.className = "bullet-text";
+      bullets.appendChild(makeBulletDOM(s.ringkasan_bab));
+
+      content.appendChild(tldr);
+      content.appendChild(bullets);
+
+      secHead.addEventListener("click", () => {
+        const open = content.style.display !== "none";
+        content.style.display = open ? "none" : "block";
+        chev.classList.toggle("open", !open);
       });
-    };
 
-    document.getElementById("collapseAll").onclick = () => {
-      document.querySelectorAll(".section").forEach(s => {
-        s._content.style.display = "none";
-        s.querySelector(".chev").classList.remove("open");
-      });
-    };
+      section._content = content;
 
-    document.getElementById("toggleHighlight").onclick = () => {
-      HIGHLIGHT = !HIGHLIGHT;
-      document.querySelectorAll("li").forEach(li => {
-        li.classList.toggle("highlight", HIGHLIGHT);
-      });
-    };
+      section.appendChild(secHead);
+      section.appendChild(content);
 
-    document.getElementById("toggleTLDR").onclick = () => {
-      SHOW_TLDR = !SHOW_TLDR;
-      document.querySelectorAll(".tldr").forEach(t => {
-        t.style.display = SHOW_TLDR ? "block" : "none";
-      });
-    };
-
-    document.getElementById("copyAll").onclick = () => {
-      const txt = container.innerText;
-      navigator.clipboard.writeText(txt);
-      alert("Berhasil disalin!");
-    };
-
-    render();
-
-    /* KOMENTAR MINI (kode lama tetap) */
-     // === Komentar Mini ===
-    const input = document.getElementById("commentInput");
-    const actions = document.querySelector(".comment-actions");
-    const wrapper = document.getElementById("commentsWrapper");
-    const prevBtn = document.getElementById("prevBtn");
-    const nextBtn = document.getElementById("nextBtn");
-
-    let comments = [];
-    let currentIndex = 0;
-
-    input.addEventListener("focus", () => actions.classList.add("show"));
-    input.addEventListener("input", () => {
-      if (input.value.trim() === "") actions.classList.remove("show");
+      big.appendChild(section);
     });
 
-    function cancelComment() {
-      input.value = "";
-      actions.classList.remove("show");
-    }
+    card.appendChild(big);
+    container.appendChild(card);
+  });
+}
 
-    async function sendComment() {
-      const text = input.value.trim();
-      if (!text) return;
-      try {
-        await fetch(`${BASE_API}/api/comments`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text }),
-        });
-        input.value = "";
-        actions.classList.remove("show");
-        loadComments();
-      } catch {
-        alert("Gagal mengirim komentar.");
-      }
-    }
+document.getElementById("expandAll").onclick = () => {
+  document.querySelectorAll(".section").forEach(s => {
+    s._content.style.display = "block";
+    s.querySelector(".chev").classList.add("open");
+  });
+};
 
-    async function loadComments() {
-      try {
-        const res = await fetch(`${BASE_API}/api/comments`);
-        comments = await res.json();
-        renderComment();
-      } catch {
-        wrapper.innerHTML = "<p style='color:red;'>Gagal memuat komentar.</p>";
-      }
-    }
+document.getElementById("collapseAll").onclick = () => {
+  document.querySelectorAll(".section").forEach(s => {
+    s._content.style.display = "none";
+    s.querySelector(".chev").classList.remove("open");
+  });
+};
 
-    function renderComment() {
-      if (!comments.length) {
-        wrapper.innerHTML = "<p class='comment-empty'>Belum ada komentar.</p>";
-        return;
-      }
-      const comment = comments[currentIndex];
-      wrapper.innerHTML = `<div class="comment-item">${escapeHTML(comment.text)}</div>`;
-    }
+document.getElementById("toggleHighlight").onclick = () => {
+  HIGHLIGHT = !HIGHLIGHT;
+  document.querySelectorAll("li").forEach(li => {
+    li.classList.toggle("highlight", HIGHLIGHT);
+  });
+};
 
-    prevBtn.addEventListener("click", () => {
-      if (!comments.length) return;
-      currentIndex = (currentIndex - 1 + comments.length) % comments.length;
-      renderComment();
-    });
+document.getElementById("toggleTLDR").onclick = () => {
+  SHOW_TLDR = !SHOW_TLDR;
+  document.querySelectorAll(".tldr").forEach(t => {
+    t.style.display = SHOW_TLDR ? "block" : "none";
+  });
+};
 
-    nextBtn.addEventListener("click", () => {
-      if (!comments.length) return;
-      currentIndex = (currentIndex + 1) % comments.length;
-      renderComment();
-    });
+document.getElementById("copyAll").onclick = () => {
+  navigator.clipboard.writeText(container.innerText);
+  alert("Berhasil disalin!");
+};
 
-    loadComments();
-  </script>
+render();
+
+/* =====================================================
+   KOMENTAR MINI (versi lama PRESISI)
+===================================================== */
+const input = document.getElementById("commentInput");
+const actions = document.querySelector(".comment-actions");
+const emojiBtn = document.getElementById("emoji-btn");
+const emojiPicker = document.getElementById("emoji-picker");
+const wrapper = document.getElementById("commentsWrapper");
+const prevBtn = document.getElementById("prevBtn");
+const nextBtn = document.getElementById("nextBtn");
+
+let comments = [];
+let index = 0;
+
+input.addEventListener("focus", () => actions.classList.add("show"));
+input.addEventListener("input", () => {
+  if (!input.value.trim()) actions.classList.remove("show");
+});
+
+emojiBtn.addEventListener("click", () => {
+  emojiPicker.style.display =
+    emojiPicker.style.display === "block" ? "none" : "block";
+});
+
+emojiPicker.addEventListener("click", e => {
+  if (e.target.tagName === "SPAN") {
+    input.value += e.target.textContent;
+    actions.classList.add("show");
+  }
+});
+
+function cancelComment() {
+  input.value = "";
+  actions.classList.remove("show");
+  emojiPicker.style.display = "none";
+}
+
+async function sendComment() {
+  const text = input.value.trim();
+  if (!text) return;
+
+  await fetch(`${BASE_API}/api/comments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text })
+  });
+
+  input.value = "";
+  actions.classList.remove("show");
+  emojiPicker.style.display = "none";
+
+  loadComments();
+}
+
+async function loadComments() {
+  try {
+    const res = await fetch(`${BASE_API}/api/comments`);
+    comments = await res.json();
+    renderComment();
+  } catch {
+    wrapper.innerHTML = `<div class="comment-item" style="color:red;">Gagal memuat komentar.</div>`;
+  }
+}
+
+function renderComment() {
+  if (!comments.length) {
+    wrapper.innerHTML = `<div class="comment-item">Belum ada komentar.</div>`;
+    return;
+  }
+  wrapper.innerHTML = `<div class="comment-item">${escapeHTML(comments[index].text)}</div>`;
+}
+
+prevBtn.onclick = () => {
+  if (!comments.length) return;
+  index = (index - 1 + comments.length) % comments.length;
+  renderComment();
+};
+
+nextBtn.onclick = () => {
+  if (!comments.length) return;
+  index = (index + 1) % comments.length;
+  renderComment();
+};
+
+loadComments();
+</script>
+
 </body>
+</html>
