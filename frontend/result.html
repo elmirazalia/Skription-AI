@@ -460,10 +460,28 @@ document.getElementById("toggleTLDR").onclick = () => {
   });
 };
 
-document.getElementById("copyAll").onclick = () => {
-  navigator.clipboard.writeText(container.innerText);
-  alert("Berhasil disalin!");
+document.getElementById("copyAll").onclick = async () => {
+  const el = document.getElementById("resultsContainer");
+  if (!el) {
+    alert("Elemen hasil tidak ditemukan.");
+    return;
+  }
+
+  const txt = el.innerText.trim();
+  if (!txt) {
+    alert("Tidak ada hasil untuk disalin.");
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(txt);
+    alert("Berhasil disalin!");
+  } catch (err) {
+    console.error("Clipboard error:", err);
+    alert("Browser menolak akses clipboard atau perlu HTTPS.");
+  }
 };
+
 
 render();
 
@@ -554,4 +572,3 @@ loadComments();
 
 </body>
 </html>
-
