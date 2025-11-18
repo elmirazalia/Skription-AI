@@ -179,14 +179,6 @@ def split_by_bab(text: str):
     if not candidates:
         return []
 
-    # Kata kunci teknis yang menaikkan skor (bahasa Indonesia + simbol)
-    KEYWORDS = [
-        "metode","sintesis","represipitasi","psa","karakteris","karakteriza",
-        "imobilis","imobiliza","µpad","μpad","nanokristal","bhb","triptamin",
-        "imagej","uv","fluores","emisi","analisis","hasil","pembahas","validasi",
-        "dispersi","konsentrasi","kecap","sampling","pengujian","selektivitas"
-    ]
-
     def score_text(t: str) -> int:
         s = 0
         low_t = t.lower()
@@ -268,26 +260,22 @@ def summarize_text_extractive(text: str, max_sent: int = 8) -> str:
 
 # PROMPT TEMPLATE
 SUM_PROMPT_TEMPLATE = (
-    "Ringkas teks BAB berikut menjadi 1 paragraf saja.\n"
-    "Tulis dengan bahasa ilmiah yang padat.\n\n"
-
-    "ATURAN WAJIB:\n"
-    "- Maksimal 130–180 kata.\n"
-    "- Jangan mengulang kalimat atau memparafrase dua kali.\n"
-    "- Fokus hanya pada inti BAB, bukan detail teknis.\n"
-    "- Jangan menjelaskan ulang setiap bagian.\n"
-    "- Jangan menyebut 'Bab ini', 'pada penelitian ini', 'bab berikut', dsb.\n"
-    "- Jangan mendeskripsikan metode secara rinci (cukup konsep utama).\n"
-    "- Jangan menyalin kalimat asli.\n"
-    "- Untuk BAB I → ringkas latar belakang, masalah, tujuan.\n"
-    "- Untuk BAB II → ringkas teori inti & posisi penelitian.\n"
-    "- Untuk BAB III → ringkas metode secara umum, bukan daftar alat.\n"
-    "- Untuk BAB IV → ringkas temuan inti.\n"
-    "- Untuk BAB V → ringkas kesimpulan & saran.\n\n"
-
-    "Teks yang akan diringkas:\n"
-    "\"\"\"{content}\"\"\"\n\n"
-    "Ringkasan:"
+    "Tugas kamu adalah merangkum sebuah BAB dari skripsi secara akademik, ringkas, dan tidak repetitif.\n\n"
+    "⚠️ ATURAN PENTING:\n"
+    "- Jangan mengulang teks dari input.\n"
+    "- Jangan membuat dua paragraf yang maknanya sama.\n"
+    "- Jangan menyebut 'Bab ini membahas...' atau kalimat pembuka deskriptif.\n"
+    "- Hilangkan referensi, kutipan tahun, nomor tabel/gambar, nama lembaga.\n"
+    "- Ambil hanya inti ilmiah.\n\n"
+    "FORMAT:\n"
+    "- BAB I → latar belakang + masalah + tujuan\n"
+    "- BAB II → teori penting + konsep utama + kerangka teori\n"
+    "- BAB III → metode + data + analisis\n"
+    "- BAB IV → hasil + pembahasan\n"
+    "- BAB V → kesimpulan + saran\n\n"
+    "Gunakan bahasa ilmiah yang padat dan mengalir.\n\n"
+    "TEKS SUMBER:\n\"\"\"{content}\"\"\"\n\n"
+    "RINGKASAN:"
 )
 
 # OLLAMA CLIENT DENGAN LOG WARNA
@@ -342,25 +330,24 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
         if len(teks) < 80:
             return {"judul": sec["judul"], "ringkasan_bab": ""}
 
-        # Bersihkan repetisi & buang intro BAB
+        # bersihkan repetisi, buang intro
         paragraphs = [p.strip() for p in teks.split("\n") if len(p.strip()) > 40]
         isi_bersih = remove_bab_intro_paragraph("\n".join(paragraphs))
         isi_bersih = clean_reference_noise(isi_bersih)
 
-        # Kompres jika terlalu panjang
+        # kompres
         isi_kompres = compress_for_prompt(isi_bersih, MAX_INPUT_CHARS)
 
-        # Panggil Ollama
+        # panggil Ollama
         summary = await ollama_summarize_async(isi_kompres, semaphore)
         summary = summary.strip()
 
-        # Bersihkan repetisi internal hasil LLM
+        # dedup paragraf
         out_paras = [p.strip() for p in summary.split("\n") if p.strip()]
         dedup = []
         seen = set()
-
         for p in out_paras:
-            key = re.sub(r"\s+", " ", p.lower())[:90]   # fingerprint
+            key = re.sub(r"\s+", " ", p.lower())[:90]
             if key not in seen:
                 seen.add(key)
                 dedup.append(p)
@@ -372,9 +359,8 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
             "ringkasan_bab": final_summary
         }
 
-    tasks = [asyncio.create_task(_process(sec)) for sec in sections]
-    return await asyncio.gather(*tasks)
-
+    return await asyncio.gather(*[asyncio.create_task(_process(sec)) for sec in sections])
+    
 def detect_non_thesis(text: str) -> bool:
     if not text or len(text) < 1000: return True
     t = text.lower()
@@ -496,6 +482,7 @@ async def post_comment(comment: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
 
 
 
