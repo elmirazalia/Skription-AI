@@ -86,6 +86,26 @@ def clean_reference_noise(text):
     text = re.sub(r"(Universitas|Fakultas|Program Studi|Jurusan|Departemen).*", "", text)
     text = re.sub(r"\s{2,}", " ", text)
     return text.strip()
+
+def remove_duplicate_paragraphs(text: str) -> str:
+    """
+    Menghapus paragraf atau kalimat yang muncul dua kali (duplikasi PDF).
+    Cocok untuk PDF skripsi yang layer text-nya double.
+    """
+    if not text:
+        return text
+
+    paras = [p.strip() for p in text.split("\n") if p.strip()]
+    unique = []
+    seen = set()
+
+    for p in paras:
+        key = p[:120].lower()  # fingerprint pendek
+        if key not in seen:
+            seen.add(key)
+            unique.append(p)
+
+    return "\n".join(unique)
     
 def remove_bab_intro_paragraph(text: str) -> str:
     """
@@ -333,15 +353,16 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
 
         # bersihkan output LLM dari repetisi dua paragraf sama
         out_paras = [p.strip() for p in summary.split("\n") if p.strip()]
-        unique = []
+        dedup = []
         seen = set()
-        for p in out_paras:
-            k = p[:70].lower()
-            if k not in seen:
-                seen.add(k)
-                unique.append(p)
-        final_summary = "\n\n".join(unique)
 
+        for p in out_paras:
+            key = re.sub(r"\s+", " ", p.lower())[:90]  # normalisasi fingerprint
+            if key not in seen:
+                seen.add(key)
+                dedup.append(p)
+    
+        final_summary = "\n\n".join(dedup)
         return {"judul": sec["judul"], "ringkasan_bab": final_summary}
 
     return await asyncio.gather(*[asyncio.create_task(_process(sec)) for sec in sections])
@@ -360,6 +381,10 @@ async def summarize_pdf_per_bab(path: str):
     raw = read_pdf_text(path)
     if not raw.strip():
         return {"file": os.path.basename(path), "sections": [], "note": "File kosong atau tidak dapat dibaca."}
+
+    raw = remove_duplicate_paragraphs(raw)
+    raw = clean_reference_noise(raw)
+
     if detect_non_thesis(raw):
         return {"file": os.path.basename(path), "sections": [], "note": "File ini tampaknya bukan skripsi atau tugas akhir."}
     sections = split_by_bab(raw)
@@ -463,5 +488,6 @@ async def post_comment(comment: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
 
 
