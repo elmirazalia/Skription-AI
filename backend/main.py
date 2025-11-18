@@ -90,37 +90,39 @@ def clean_reference_noise(text):
 def remove_bab_intro_paragraph(text: str) -> str:
     """
     Menghapus paragraf pembuka seperti:
-      - 'BAB 1 membahas ...'
-      - 'BAB II memaparkan ...'
-      - 'BAB ini menjelaskan ...'
-      - 'BAB 3 akan menguraikan ...'
-      - 'BAB V menyajikan ...'
-    supaya ringkasan langsung ke isi ilmiah.
+    - 'Bab ini menguraikan...'
+    - 'Bab X membahas...'
+    - 'Bab ini akan menjelaskan...'
+    dan membuang paragraf duplikat otomatis.
     """
-    if not text or len(text.strip()) < 50:
+    if not text:
         return text
 
-    first_block = "\n".join(text.strip().split("\n")[:3])
-
-    pattern = re.compile(
-        r"^\s*("
-        r"bab(\s+[ivxlcdm]+|\s*\d+)?(\s+ini)?\s*"
-        r"(akan\s+)?"
-        r"(membahas|menjelaskan|menguraikan|memaparkan|mendeskripsikan|menjabarkan|menyajikan)"
-        r")\b",
+    # buang paragraf pembuka deskriptif
+    paragraphs = [p.strip() for p in text.split("\n") if p.strip()]
+    clean_paragraphs = []
+    
+    intro_pattern = re.compile(
+        r"^\s*(bab\s*(i|ii|iii|iv|v|\d+)?\s*(ini)?\s*(akan\s+)?"
+        r"(membahas|menguraikan|menjelaskan|memaparkan|menjabarkan))",
         flags=re.IGNORECASE
     )
 
-    if pattern.search(first_block):
-        print(f"{Fore.CYAN}[CLEAN]{Style.RESET_ALL} Menghapus paragraf pembuka deskriptif Bab.")
-        parts = re.split(r"\n\s*\n", text.strip(), maxsplit=1)
-        if len(parts) > 1:
-            return parts[1].strip()
-        else:
-            sentences = re.split(r'(?<=[.!?])\s+', text.strip(), maxsplit=1)
-            return sentences[1].strip() if len(sentences) > 1 else text
+    for p in paragraphs:
+        if intro_pattern.search(p):
+            continue
+        clean_paragraphs.append(p)
 
-    return text
+    # hilangkan duplikasi paragraf yang sama
+    final_unique = []
+    seen = set()
+    for p in clean_paragraphs:
+        key = p[:80].lower()
+        if key not in seen:
+            seen.add(key)
+            final_unique.append(p)
+
+    return "\n".join(final_unique)
     
 # SPLIT BAB
 def split_by_bab(text: str):
@@ -461,4 +463,5 @@ async def post_comment(comment: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
 
