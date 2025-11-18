@@ -280,18 +280,14 @@
   </div>
 
 <script>
-/* =====================================================
-   BASE API AUTO
-===================================================== */
+// BASE API AUTO
 const BASE_API = location.hostname.includes("localhost")
   ? "http://localhost:8000"
   : "https://docusum.onrender.com";
 
 const container = document.getElementById("resultsContainer");
 
-/* =====================================================
-   TOOLS
-===================================================== */
+// Tools
 function escapeHTML(t = "") {
   return t.replace(/[&<>"']/g, m =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m])
@@ -317,9 +313,7 @@ function makeBulletDOM(t) {
   return ul;
 }
 
-/* =====================================================
-   RENDER RINGKASAN
-===================================================== */
+// Render
 let SHOW_TLDR = true;
 let HIGHLIGHT = false;
 
@@ -473,9 +467,7 @@ document.getElementById("copyAll").onclick = () => {
 
 render();
 
-/* =====================================================
-   KOMENTAR MINI (versi lama PRESISI)
-===================================================== */
+// Komentar
 const input = document.getElementById("commentInput");
 const actions = document.querySelector(".comment-actions");
 const emojiBtn = document.getElementById("emoji-btn");
@@ -562,3 +554,4 @@ loadComments();
 
 </body>
 </html>
+
