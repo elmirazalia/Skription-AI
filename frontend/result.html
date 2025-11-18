@@ -404,7 +404,7 @@ function render() {
       const tldr = document.createElement("div");
       tldr.className = "tldr";
       tldr.style.display = SHOW_TLDR ? "block" : "none";
-      tldr.textContent = s.tldr || "";
+      tldr.textContent = makeTLDR(s.ringkasan_bab);
 
       const bullets = document.createElement("div");
       bullets.className = "bullet-text";
@@ -572,4 +572,5 @@ loadComments();
 
 </body>
 </html>
+
 
