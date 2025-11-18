@@ -13,7 +13,7 @@ colorama_init(autoreset=True)
 
 # CONFIG & PARAMETER
 OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", "http://localhost:11434/api/generate")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma2:9b")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:14b")
 
 MAX_CONCURRENCY = 10
 MAX_RETRIES = 4
@@ -268,23 +268,26 @@ def summarize_text_extractive(text: str, max_sent: int = 8) -> str:
 
 # PROMPT TEMPLATE
 SUM_PROMPT_TEMPLATE = (
-    "Tugas kamu adalah merangkum sebuah BAB dari skripsi secara akademik, ringkas, dan tidak repetitif.\n\n"
-    "⚠️ ATURAN PENTING:\n"
-    "- Jangan mengulang teks dari input.\n"
-    "- Jangan membuat dua paragraf yang maknanya sama.\n"
-    "- Jangan menyebut 'Bab ini membahas...' atau kalimat pembuka deskriptif.\n"
-    "- Hilangkan referensi, kutipan tahun, nomor tabel/gambar, nama lembaga.\n"
-    "- Ambil hanya inti ilmiah.\n\n"
-    "FORMAT WAJIB:\n"
-    "1–2 paragraf ringkasan ilmiah sesuai fungsi BAB:\n"
-    "- BAB I → latar belakang + masalah + tujuan\n"
-    "- BAB II → teori penting + konsep utama + kerangka teori\n"
-    "- BAB III → metode + data + analisis\n"
-    "- BAB IV → hasil + analisis pembahasan\n"
-    "- BAB V → kesimpulan + saran\n\n"
-    "Gunakan bahasa ilmiah yang mengalir dan padat.\n\n"
-    "TEKS SUMBER:\n\"\"\"{content}\"\"\"\n\n"
-    "RINGKASAN:"
+    "Ringkas teks BAB berikut menjadi 1 paragraf saja.\n"
+    "Tulis dengan bahasa ilmiah yang padat.\n\n"
+
+    "ATURAN WAJIB:\n"
+    "- Maksimal 130–180 kata.\n"
+    "- Jangan mengulang kalimat atau memparafrase dua kali.\n"
+    "- Fokus hanya pada inti BAB, bukan detail teknis.\n"
+    "- Jangan menjelaskan ulang setiap bagian.\n"
+    "- Jangan menyebut 'Bab ini', 'pada penelitian ini', 'bab berikut', dsb.\n"
+    "- Jangan mendeskripsikan metode secara rinci (cukup konsep utama).\n"
+    "- Jangan menyalin kalimat asli.\n"
+    "- Untuk BAB I → ringkas latar belakang, masalah, tujuan.\n"
+    "- Untuk BAB II → ringkas teori inti & posisi penelitian.\n"
+    "- Untuk BAB III → ringkas metode secara umum, bukan daftar alat.\n"
+    "- Untuk BAB IV → ringkas temuan inti.\n"
+    "- Untuk BAB V → ringkas kesimpulan & saran.\n\n"
+
+    "Teks yang akan diringkas:\n"
+    "\"\"\"{content}\"\"\"\n\n"
+    "Ringkasan:"
 )
 
 # OLLAMA CLIENT DENGAN LOG WARNA
@@ -488,6 +491,7 @@ async def post_comment(comment: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
 
 
 
