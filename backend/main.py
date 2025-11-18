@@ -13,7 +13,7 @@ colorama_init(autoreset=True)
 
 # CONFIG & PARAMETER
 OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", "http://localhost:11434/api/generate")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:14b")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma2:9b")
 
 MAX_CONCURRENCY = 10
 MAX_RETRIES = 4
@@ -366,7 +366,27 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
                 dedup.append(p)
     
         final_summary = "\n\n".join(dedup)
-        return {"judul": sec["judul"], "ringkasan_bab": final_summary}
+
+        # TLDR
+        tldr_prompt = (
+            "Buat TLDR satu kalimat yang menyampaikan ide paling inti dari bab ini. 
+            TLDR harus lebih abstrak dan lebih singkat daripada ringkasan, 
+            bukan parafrase atau kompresi kalimat dari ringkasan. 
+            Gunakan sudut pandang lebih tinggi (big picture). 
+            Hanya ambil konsep inti, bukan detail."
+
+            f"TEKS RINGKASAN:\n{final_summary}\n\n"
+            "TLDR:"
+        )
+
+        tldr_text = await asyncio.to_thread(_ollama_generate, tldr_prompt)
+        tldr_text = (tldr_text or "").strip()
+
+        return {
+            "judul": sec["judul"],
+            "ringkasan_bab": final_summary,
+            "tldr": tldr_text
+        }
 
     return await asyncio.gather(*[asyncio.create_task(_process(sec)) for sec in sections])
 
@@ -491,9 +511,3 @@ async def post_comment(comment: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
-
-
-
-
-
-
