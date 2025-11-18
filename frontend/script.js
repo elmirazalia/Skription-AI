@@ -1,4 +1,3 @@
-// script.js
 // Toast Manager
 class ToastManager {
     static showToast(message, type = 'info') {
@@ -19,6 +18,7 @@ class ToastManager {
     }
 }
 
+// FileUploader
 class FileUploader {
     constructor() {
         this.uploadedFiles = [];
@@ -97,6 +97,7 @@ class FileUploader {
         const fileItem = { id, file, status: 'uploading' };
         this.uploadedFiles.push(fileItem);
         this.renderFileItem(fileItem);
+
         setTimeout(() => this.updateFileStatus(id, 'completed'), 800);
     }
 
@@ -171,7 +172,6 @@ class FileUploader {
 
             const data = await response.json();
 
-            // ⚠️ Jika bukan skripsi → tampilkan pesan tapi tetap simpan hasil
             if (!data.success) {
                 ToastManager.showToast(data.message || "Bukan dokumen skripsi", "warning");
                 return {
@@ -182,7 +182,7 @@ class FileUploader {
             }
 
             ToastManager.showToast(`"${file.name}" selesai ✅`, "success");
-            return data.data; // hanya hasil ringkasan
+            return data.data;
 
         } catch (error) {
             console.error("Error:", error);
@@ -193,3 +193,31 @@ class FileUploader {
 }
 
 document.addEventListener('DOMContentLoaded', () => new FileUploader());
+
+// KONVERSI RINGKASAN MENJADI BULLET + SUB BULLET
+function convertToBullets(text) {
+    if (!text) return "";
+
+    // Pisahkan berdasarkan titik
+    const sentences = text
+        .split(/(?<=\.)\s+/)
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+
+    let result = "<ul>";
+
+    sentences.forEach(s => {
+        // Kalimat panjang → bullet utama
+        if (s.length > 90) {
+            result += `<li>${s}</li>`;
+        } else {
+            // Kalimat pendek → sub-bullet
+            result += `<ul><li style="margin-left:12px;">– ${s}</li></ul>`;
+        }
+    });
+
+    result += "</ul>";
+    return result;
+}
+
+window.convertSectionsToBullets = convertToBullets;
