@@ -342,51 +342,38 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
         if len(teks) < 80:
             return {"judul": sec["judul"], "ringkasan_bab": ""}
 
-        # bersihkan repetisi, buang intro BAB
+        # Bersihkan repetisi & buang intro BAB
         paragraphs = [p.strip() for p in teks.split("\n") if len(p.strip()) > 40]
         isi_bersih = remove_bab_intro_paragraph("\n".join(paragraphs))
         isi_bersih = clean_reference_noise(isi_bersih)
 
-        # kompres jika > batas
+        # Kompres jika terlalu panjang
         isi_kompres = compress_for_prompt(isi_bersih, MAX_INPUT_CHARS)
 
-        # panggil Ollama
+        # Panggil Ollama
         summary = await ollama_summarize_async(isi_kompres, semaphore)
         summary = summary.strip()
 
-        # bersihkan output LLM dari repetisi dua paragraf sama
+        # Bersihkan repetisi internal hasil LLM
         out_paras = [p.strip() for p in summary.split("\n") if p.strip()]
         dedup = []
         seen = set()
 
         for p in out_paras:
-            key = re.sub(r"\s+", " ", p.lower())[:90]  # normalisasi fingerprint
+            key = re.sub(r"\s+", " ", p.lower())[:90]   # fingerprint
             if key not in seen:
                 seen.add(key)
                 dedup.append(p)
-    
+
         final_summary = "\n\n".join(dedup)
-
-        # TLDR
-        tldr_prompt = (
-            "Buat satu kalimat TLDR yang sangat padat mengenai inti bab. "
-            "Jangan mengulang kalimat dari ringkasan. "
-            "Jangan mulai dengan 'Bab ini'. "
-            "Langsung ke esensi ilmiah.\n\n"
-            f"TEKS RINGKASAN:\n{final_summary}\n\n"
-            "TLDR:"
-        )
-
-        tldr_text = await asyncio.to_thread(_ollama_generate, tldr_prompt)
-        tldr_text = (tldr_text or "").strip()
 
         return {
             "judul": sec["judul"],
-            "ringkasan_bab": final_summary,
-            "tldr": tldr_text
+            "ringkasan_bab": final_summary
         }
 
-    return await asyncio.gather(*[asyncio.create_task(_process(sec)) for sec in sections])
+    tasks = [asyncio.create_task(_process(sec)) for sec in sections]
+    return await asyncio.gather(*tasks)
 
 def detect_non_thesis(text: str) -> bool:
     if not text or len(text) < 1000: return True
@@ -509,4 +496,5 @@ async def post_comment(comment: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
 
