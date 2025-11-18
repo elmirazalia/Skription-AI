@@ -13,13 +13,21 @@ colorama_init(autoreset=True)
 
 # CONFIG & PARAMETER
 OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", "http://localhost:11434/api/generate")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma2:9b")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:32b")
 
 MAX_CONCURRENCY = 10
 MAX_RETRIES = 4
 RETRY_BASE_DELAY = 0.8
 OLLAMA_TIMEOUT = 180
 MAX_INPUT_CHARS = 50000
+
+# Global keywords used by split_by_bab scoring
+KEYWORDS = [
+    "metode", "sintesis", "represipitasi", "psa", "karakteris", "karakteriza",
+    "imobilis", "imobiliza", "µpad", "μpad", "nanokristal", "bhb", "triptamin",
+    "imagej", "uv", "fluores", "emisi", "analisis", "hasil", "pembahas", "validasi",
+    "dispersi", "konsentrasi", "kecap", "sampling", "pengujian", "selektivitas"
+]
 
 # PDF TEXT EXTRACTION
 def read_pdf_text(path: str) -> str:
@@ -31,7 +39,7 @@ def read_pdf_text(path: str) -> str:
         text = clean_text(text)
         if _enough_text(text):
             return text
-    except:
+    except Exception:
         pass
 
     try:
@@ -39,7 +47,7 @@ def read_pdf_text(path: str) -> str:
         text = clean_text(extract_text(path))
         if _enough_text(text):
             return text
-    except:
+    except Exception:
         pass
 
     try:
@@ -49,7 +57,7 @@ def read_pdf_text(path: str) -> str:
         text = clean_text(raw)
         if _enough_text(text):
             return text
-    except:
+    except Exception:
         pass
 
     try:
@@ -60,13 +68,13 @@ def read_pdf_text(path: str) -> str:
         for pg in pages:
             ocr_text += pytesseract.image_to_string(pg, lang="eng+ind") + "\n"
         return clean_text(ocr_text)
-    except:
+    except Exception:
         return clean_text(text)
 
 def _enough_text(text, min_chars=200):
     return len(text.strip()) >= min_chars
 
-BLACKBOX = ["■","□","▯","█","�"]
+BLACKBOX = ["■", "□", "▯", "█", "�"]
 def clean_text(text):
     if not text:
         return ""
@@ -100,13 +108,13 @@ def remove_duplicate_paragraphs(text: str) -> str:
     seen = set()
 
     for p in paras:
-        key = p[:120].lower()  # fingerprint pendek
+        key = p[:120].lower()
         if key not in seen:
             seen.add(key)
             unique.append(p)
 
     return "\n".join(unique)
-    
+
 def remove_bab_intro_paragraph(text: str) -> str:
     """
     Menghapus paragraf pembuka seperti:
@@ -118,10 +126,9 @@ def remove_bab_intro_paragraph(text: str) -> str:
     if not text:
         return text
 
-    # buang paragraf pembuka deskriptif
     paragraphs = [p.strip() for p in text.split("\n") if p.strip()]
     clean_paragraphs = []
-    
+
     intro_pattern = re.compile(
         r"^\s*(bab\s*(i|ii|iii|iv|v|\d+)?\s*(ini)?\s*(akan\s+)?"
         r"(membahas|menguraikan|menjelaskan|memaparkan|menjabarkan))",
@@ -133,7 +140,6 @@ def remove_bab_intro_paragraph(text: str) -> str:
             continue
         clean_paragraphs.append(p)
 
-    # hilangkan duplikasi paragraf yang sama
     final_unique = []
     seen = set()
     for p in clean_paragraphs:
@@ -143,7 +149,7 @@ def remove_bab_intro_paragraph(text: str) -> str:
             final_unique.append(p)
 
     return "\n".join(final_unique)
-    
+
 # SPLIT BAB
 def split_by_bab(text: str):
     # Buang elemen non-bab
@@ -182,50 +188,38 @@ def split_by_bab(text: str):
     def score_text(t: str) -> int:
         s = 0
         low_t = t.lower()
-        # dasar: panjang
         s += min(len(low_t), 20000)
-        # kata kunci
         key_count = sum(1 for k in KEYWORDS if k in low_t)
         s += key_count * 800
-        # jumlah kalimat berguna
         sent_count = len(re.findall(r'[\.!?]', low_t))
         s += min(sent_count, 50) * 50
-        # angka/ukur (adanya angka biasanya tanda data atau parameter)
         if re.search(r'\d', low_t):
             s += 500
-        # jika ada banyak istilah ilmiah (huruf panjang kata)
         long_word_count = sum(1 for w in re.findall(r'\w+', low_t) if len(w) > 6)
         s += min(long_word_count, 200) * 5
-        # penalti jika hanya frasa meta seperti "Bab ini membahas" tanpa kata kunci
         if re.search(r'\bbab\s+\w+\s+membahas', low_t) and key_count == 0 and len(low_t) < 1000:
             s -= 10000
         return s
 
-    # Kelompokkan kandidat berdasarkan judul (BAB I, BAB II, ...)
     groups = {}
     for c in candidates:
         key = re.sub(r'\s+', ' ', c["judul"].upper().strip())
         groups.setdefault(key, []).append(c)
 
-    # Pilih kandidat terbaik per grup (skor tertinggi), simpan pos aslinya
     chosen = []
     for key, items in groups.items():
         best = max(items, key=lambda it: score_text(it["isi"]))
         best["score"] = score_text(best["isi"])
         chosen.append(best)
 
-    # Urutkan berdasarkan posisi terawal kemunculan di dokumen
     chosen.sort(key=lambda x: x["pos"])
 
-    # Final cleaning: buang yang sangat pendek dan tidak informatif
     final = []
     for ch in chosen:
         isi_bersih = re.sub(r'\s+', ' ', ch["isi"]).strip()
-        # jika sangat pendek dan tidak mengandung kata kunci penting, skip
         if len(isi_bersih) < 400 and all(k not in isi_bersih.lower() for k in KEYWORDS):
             print(f"{Fore.YELLOW}[FILTER]{Style.RESET_ALL} Menghapus {ch['judul']} (terlalu pendek/tidak teknis).")
             continue
-        # Hapus paragraf intro “Bab ini membahas …”
         isi_final = remove_bab_intro_paragraph(ch["isi"])
         final.append({"judul": ch["judul"], "isi": isi_final})
 
@@ -244,38 +238,45 @@ def split_sentences(text: str):
 
 def summarize_text_extractive(text: str, max_sent: int = 8) -> str:
     sents = split_sentences(text)
-    if not sents: return ""
+    if not sents:
+        return ""
     sent_tokens = [tokenize(s) for s in sents]
     df = Counter()
-    for t in sent_tokens: df.update(set(t))
+    for t in sent_tokens:
+        df.update(set(t))
     N = len(sents)
     scores = []
     for i, toks in enumerate(sent_tokens):
         score = sum((cnt / (1 + len(toks))) * (math.log((N + 1) / (1 + df[w])) + 1)
                     for w, cnt in Counter(toks).items())
-        if i < max(3, int(N * 0.1)): score *= 1.15
+        if i < max(3, int(N * 0.1)):
+            score *= 1.15
         scores.append(score)
     top_idx = sorted(range(N), key=lambda i: scores[i], reverse=True)[:max_sent]
     return " ".join([sents[i] for i in sorted(top_idx)])
 
 # PROMPT TEMPLATE
 SUM_PROMPT_TEMPLATE = (
-    "Tugas kamu adalah merangkum sebuah BAB dari skripsi secara akademik, ringkas, dan tidak repetitif.\n\n"
-    "⚠️ ATURAN PENTING:\n"
-    "- Jangan mengulang teks dari input.\n"
-    "- Jangan membuat dua paragraf yang maknanya sama.\n"
-    "- Jangan menyebut 'Bab ini membahas...' atau kalimat pembuka deskriptif.\n"
-    "- Hilangkan referensi, kutipan tahun, nomor tabel/gambar, nama lembaga.\n"
-    "- Ambil hanya inti ilmiah.\n\n"
-    "FORMAT:\n"
-    "- BAB I → latar belakang + masalah + tujuan\n"
-    "- BAB II → teori penting + konsep utama + kerangka teori\n"
-    "- BAB III → metode + data + analisis\n"
-    "- BAB IV → hasil + pembahasan\n"
-    "- BAB V → kesimpulan + saran\n\n"
-    "Gunakan bahasa ilmiah yang padat dan mengalir.\n\n"
-    "TEKS SUMBER:\n\"\"\"{content}\"\"\"\n\n"
-    "RINGKASAN:"
+    "Ringkas teks BAB berikut menjadi 1 paragraf saja.\n"
+    "Tulis dengan bahasa ilmiah yang padat.\n\n"
+
+    "ATURAN WAJIB:\n"
+    "- Maksimal 130–180 kata.\n"
+    "- Jangan mengulang kalimat atau memparafrase dua kali.\n"
+    "- Fokus hanya pada inti BAB, bukan detail teknis.\n"
+    "- Jangan menjelaskan ulang setiap bagian.\n"
+    "- Jangan menyebut 'Bab ini', 'pada penelitian ini', 'bab berikut', dsb.\n"
+    "- Jangan mendeskripsikan metode secara rinci (cukup konsep utama).\n"
+    "- Jangan menyalin kalimat asli.\n"
+    "- Untuk BAB I → ringkas latar belakang, masalah, tujuan.\n"
+    "- Untuk BAB II → ringkas teori inti & posisi penelitian.\n"
+    "- Untuk BAB III → ringkas metode secara umum, bukan daftar alat.\n"
+    "- Untuk BAB IV → ringkas temuan inti.\n"
+    "- Untuk BAB V → ringkas kesimpulan & saran.\n\n"
+
+    "Teks yang akan diringkas:\n"
+    "\"\"\"{content}\"\"\"\n\n"
+    "Ringkasan:"
 )
 
 # OLLAMA CLIENT DENGAN LOG WARNA
@@ -328,7 +329,7 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
     async def _process(sec):
         teks = (sec.get("isi") or "").strip()
         if len(teks) < 80:
-            return {"judul": sec["judul"], "ringkasan_bab": ""}
+            return {"judul": sec["judul"], "ringkasan_bab": "", "tldr": ""}
 
         # bersihkan repetisi, buang intro
         paragraphs = [p.strip() for p in teks.split("\n") if len(p.strip()) > 40]
@@ -338,9 +339,9 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
         # kompres
         isi_kompres = compress_for_prompt(isi_bersih, MAX_INPUT_CHARS)
 
-        # panggil Ollama
+        # panggil Ollama untuk ringkasan
         summary = await ollama_summarize_async(isi_kompres, semaphore)
-        summary = summary.strip()
+        summary = (summary or "").strip()
 
         # dedup paragraf
         out_paras = [p.strip() for p in summary.split("\n") if p.strip()]
@@ -354,21 +355,46 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
 
         final_summary = "\n\n".join(dedup)
 
+        # buat TLDR satu kalimat tanpa mengulang frasa dari ringkasan
+        tldr_prompt = (
+            "Buat satu kalimat TLDR yang sangat padat mengenai inti bab. "
+            "Jangan mengulang kalimat dari ringkasan. "
+            "Jangan mulai dengan 'Bab ini'. "
+            "Langsung ke esensi ilmiah.\n\n"
+            f"TEKS RINGKASAN:\n{final_summary}\n\n"
+            "TLDR:"
+        )
+
+        tldr_text = await asyncio.to_thread(_ollama_generate, tldr_prompt)
+        tldr_text = (tldr_text or "").strip()
+
+        # jika Ollama gagal buat TLDR, fallback singkat lokal
+        if not tldr_text:
+            # ambil kalimat pertama paling informatif dari final_summary
+            sents = split_sentences(final_summary)
+            tldr_text = sents[0] if sents else ""
+
         return {
             "judul": sec["judul"],
-            "ringkasan_bab": final_summary
+            "ringkasan_bab": final_summary,
+            "tldr": tldr_text
         }
 
-    return await asyncio.gather(*[asyncio.create_task(_process(sec)) for sec in sections])
-    
+    tasks = [asyncio.create_task(_process(sec)) for sec in sections]
+    return await asyncio.gather(*tasks)
+
 def detect_non_thesis(text: str) -> bool:
-    if not text or len(text) < 1000: return True
+    if not text or len(text) < 1000:
+        return True
     t = text.lower()
     bab_count = len(re.findall(r"\b(bab\s+(i|ii|iii|iv|v|1|2|3|4|5))\b", t))
-    if bab_count < 2: return True
-    keywords = ["pendahuluan","tinjauan pustaka","metodologi","hasil","kesimpulan","rumusan masalah","tujuan"]
-    if sum(1 for kw in keywords if kw in t) < 3: return True
-    if any(x in t for x in ["invoice","laporan keuangan","brosur","sertifikat"]): return True
+    if bab_count < 2:
+        return True
+    keywords = ["pendahuluan", "tinjauan pustaka", "metodologi", "hasil", "kesimpulan", "rumusan masalah", "tujuan"]
+    if sum(1 for kw in keywords if kw in t) < 3:
+        return True
+    if any(x in t for x in ["invoice", "laporan keuangan", "brosur", "sertifikat"]):
+        return True
     return False
 
 async def summarize_pdf_per_bab(path: str):
@@ -382,7 +408,8 @@ async def summarize_pdf_per_bab(path: str):
     if detect_non_thesis(raw):
         return {"file": os.path.basename(path), "sections": [], "note": "File ini tampaknya bukan skripsi atau tugas akhir."}
     sections = split_by_bab(raw)
-    if not sections: sections = [{"judul": "BAB I", "isi": raw}]
+    if not sections:
+        sections = [{"judul": "BAB I", "isi": raw}]
     results = await summarize_sections_parallel(sections)
     return {"file": os.path.basename(path), "sections": results}
 
@@ -394,26 +421,34 @@ from reportlab.lib.styles import getSampleStyleSheet
 
 def export_all(data, out_docx, out_pdf):
     doc = Document()
-    doc.add_heading("Ringkasan Per Bab (Ollama)", 0)
+    doc.add_heading("Ringkasan Per Bab", 0)
     doc.add_paragraph(f"File: {data['file']}")
     for sec in data["sections"]:
         doc.add_heading(sec["judul"], level=1)
-        doc.add_paragraph(sec["ringkasan_bab"] or "")
+        doc.add_paragraph(sec.get("ringkasan_bab") or "")
+        # sertakan TLDR di bawah judul (opsional)
+        tldr = sec.get("tldr")
+        if tldr:
+            doc.add_paragraph(f"TLDR: {tldr}")
+
     doc.save(out_docx)
 
     styles = getSampleStyleSheet()
     pdf = SimpleDocTemplate(out_pdf, pagesize=A4)
-    elements = [Paragraph("Ringkasan Per Bab (Ollama)", styles['Title']),
+    elements = [Paragraph("Ringkasan Per Bab", styles['Title']),
                 Paragraph(f"File: {data['file']}", styles['Normal']),
                 Spacer(1, 12)]
     for sec in data["sections"]:
         elements.append(Paragraph(sec["judul"], styles['Heading2']))
-        elements.append(Paragraph(sec["ringkasan_bab"] or "", styles['Normal']))
+        if sec.get("tldr"):
+            elements.append(Paragraph(f"TLDR: {sec['tldr']}", styles['Normal']))
+            elements.append(Spacer(1, 6))
+        elements.append(Paragraph(sec.get("ringkasan_bab") or "", styles['Normal']))
         elements.append(Spacer(1, 12))
     pdf.build(elements)
 
 # FASTAPI APP
-app = FastAPI(title="DocuSum AI (Ollama)", version="9.0")
+app = FastAPI(title="DocuSum AI (Ollama)", version="1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 UPLOAD_DIR = Path("uploads")
@@ -482,7 +517,3 @@ async def post_comment(comment: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
-
-
-
-
