@@ -143,7 +143,42 @@ def remove_bab_intro_paragraph(text: str) -> str:
             final_unique.append(p)
 
     return "\n".join(final_unique)
-    
+
+def remove_subbab(text: str) -> str:
+    # hilangkan heading model subbab "3.1", "4.2.1", dll
+    text = re.sub(r"^\s*\d+(\.\d+){1,3}\s+.*$", "", text, flags=re.MULTILINE)
+    return text
+
+def remove_header_footer(text: str) -> str:
+    lines = text.split("\n")
+    cleaned = []
+    freq = {}
+
+    # hitung frekuensi tiap baris
+    for line in lines:
+        key = line.strip().lower()
+        freq[key] = freq.get(key, 0) + 1
+
+    # buang baris yang muncul di >5 halaman (indikasi footer/header)
+    for line in lines:
+        if freq[line.strip().lower()] > 5:
+            continue
+        cleaned.append(line)
+
+    return "\n".join(cleaned)
+
+def remove_noise_lines(text: str) -> str:
+    lines = text.split("\n")
+    out = []
+    for l in lines:
+        stripped = l.strip()
+        if len(stripped) <= 6:  # angka doang / header kecil
+            continue
+        if re.match(r"^halaman\s+\d+$", stripped.lower()):
+            continue
+        out.append(l)
+    return "\n".join(out)
+
 # SPLIT BAB
 def split_by_bab(text: str):
     # Buang elemen non-bab
@@ -268,31 +303,33 @@ def summarize_text_extractive(text: str, max_sent: int = 8) -> str:
 
 # PROMPT TEMPLATE
 SUM_PROMPT_TEMPLATE = (
-    "Anda bertugas membuat dua jenis ringkasan dari satu BAB skripsi.\n\n"
-    "1) TLDR (sangat singkat):\n"
+    "Anda harus menghasilkan dua ringkasan: TLDR dan Ringkasan Lengkap.\n\n"
+    
+    "TLDR (sangat penting):\n"
     "- Hanya 1 kalimat.\n"
+    "- Merangkum inti BAB sesuai FUNGSI BAB skripsi, bukan isi paragraf pertama.\n"
     "- Harus berbeda total dari ringkasan lengkap.\n"
-    "- Merangkum inti BAB dalam kalimat paling ringkas.\n"
-    "- Tidak boleh mengulang kalimat atau pola bahasa dari ringkasan lengkap.\n\n"
-    "2) Ringkasan Lengkap (1–2 paragraf):\n"
-    "- Sesuai fungsi BAB:\n"
-    "  • BAB I → latar belakang, masalah, tujuan, ruang lingkup\n"
-    "  • BAB II → teori, konsep utama, penelitian terdahulu\n"
-    "  • BAB III → metode, alat & bahan, alur penelitian\n"
-    "  • BAB IV → hasil, temuan, pembahasan\n"
-    "  • BAB V → kesimpulan & saran\n"
-    "- Bahasa ilmiah, padat, tidak repetitif.\n"
-    "Aturan tambahan:\n"
-    "- Jangan mengulang kalimat dari teks asli.\n"
-    "- Jangan membuat 2 paragraf yang maknanya sama.\n"
-    "- Hilangkan teks meta seperti 'Bab ini membahas...' dan referensi.\n"
-    "- TLDR dan ringkasan lengkap harus berbeda total.\n\n"
-    "Format output WAJIB:\n"
+    "- Fokus per BAB:\n"
+    "  • BAB I: latar belakang, masalah, tujuan penelitian, ruang lingkup.\n"
+    "  • BAB II: teori inti, konsep penting, penelitian terdahulu.\n"
+    "  • BAB III: metode utama, bahan/alat kunci, alur kerja penelitian.\n"
+    "  • BAB IV: temuan utama dan inti pembahasan.\n"
+    "  • BAB V: kesimpulan inti dan saran singkat.\n"
+    "- Tidak boleh menjelaskan terlalu rinci; cukup inti 1 kalimat.\n\n"
+
+    "RINGKASAN LENGKAP:\n"
+    "- 1–2 paragraf.\n"
+    "- Merangkum isi BAB secara utuh, padat, ilmiah, tanpa repetisi.\n"
+    "- Tidak boleh meniru TLDR dan tidak boleh meta seperti 'bab ini membahas'.\n"
+    "- Tidak boleh mengulang kalimat dari teks sumber.\n\n"
+
+    "Format output wajib:\n"
     "TLDR:\n"
-    "<isi tldr>\n\n"
+    "<tldr>\n\n"
     "RINGKASAN:\n"
-    "<isi ringkasan>\n\n"
-    "TEKS SUMBER:\n\"\"\"{content}\"\"\"\n"
+    "<ringkasan>\n\n"
+    
+    "TEKS SUMBER:\n\"\"\"{content}\"\"\""
 )
 
 # OLLAMA CLIENT DENGAN LOG WARNA
@@ -410,6 +447,9 @@ async def summarize_pdf_per_bab(path: str):
 
     raw = remove_duplicate_paragraphs(raw)
     raw = clean_reference_noise(raw)
+    raw = remove_header_footer(raw)
+    raw = remove_subbab(raw)
+    raw = remove_noise_lines(raw)
 
     if detect_non_thesis(raw):
         return {"file": os.path.basename(path), "sections": [], "note": "File ini tampaknya bukan skripsi atau tugas akhir."}
@@ -514,4 +554,3 @@ async def post_comment(comment: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
-
