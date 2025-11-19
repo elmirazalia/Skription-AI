@@ -298,7 +298,17 @@ SUM_PROMPT_TEMPLATE = (
 # OLLAMA CLIENT DENGAN LOG WARNA
 def _ollama_generate(prompt: str) -> str:
     try:
-        payload = {"model": OLLAMA_MODEL, "prompt": prompt, "stream": False}
+        payload = {
+            "model": OLLAMA_MODEL,
+            "prompt": prompt,
+            "stream": False,
+            "options": {
+            "temperature": 0,
+            "top_p": 1,
+            "top_k": 1,
+            "repeat_penalty": 1.1
+            }
+        }
         resp = requests.post(OLLAMA_API_URL, json=payload, timeout=OLLAMA_TIMEOUT)
         resp.raise_for_status()
         data = resp.json()
