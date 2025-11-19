@@ -386,9 +386,14 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
 
         # bersihkan repetisi, buang intro BAB
         paragraphs = [p.strip() for p in teks.split("\n") if len(p.strip()) > 40]
-        isi_bersih = remove_bab_intro_paragraph("\n".join(paragraphs))
-        isi_bersih = clean_reference_noise(isi_bersih)
 
+        # filter subbab
+        isi_bersih = remove_subbab("\n".join(paragraphs))
+
+        # filter lanjutan
+        isi_bersih = remove_bab_intro_paragraph(isi_bersih)
+        isi_bersih = clean_reference_noise(isi_bersih)
+        
         # kompres jika > batas
         isi_kompres = compress_for_prompt(isi_bersih, MAX_INPUT_CHARS)
 
@@ -554,3 +559,4 @@ async def post_comment(comment: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
