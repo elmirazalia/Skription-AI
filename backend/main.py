@@ -426,27 +426,16 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
         final_summary = "\n\n".join(dedup)
 
         # TLDR
-        bab_nomor = re.search(r'\d+', sec["judul"])
-        bab = int(bab_nomor.group()) if bab_nomor else 1
-
-        if bab == 1:
-            aturan = ("TLDR harus merangkum empat unsur: latar belakang, rumusan masalah, "
-                      "tujuan penelitian, dan ruang lingkup penelitian.")
-        elif bab == 2:
-            aturan = "TLDR harus merangkum teori inti, konsep penting, dan ringkasan penelitian terdahulu."
-        elif bab == 3:
-            aturan = "TLDR harus merangkum metode inti, bahan/alat kunci, dan alur penelitian."
-        elif bab == 4:
-            aturan = "TLDR harus merangkum temuan utama dan inti pembahasan."
-        elif bab == 5:
-            aturan = "TLDR harus merangkum kesimpulan inti dan saran singkat."
-
         tldr_prompt = (
-            f"Buat satu kalimat TLDR untuk {sec['judul']}.\n"
-            f"{aturan}\n"
-            "TLDR TIDAK boleh meta (tidak boleh ada frasa seperti 'bab ini membahas').\n"
-            "TLDR TIDAK boleh menyalin kalimat dari ringkasan.\n"
-            "TLDR hanya satu kalimat dan harus berbeda total dari ringkasan.\n\n"
+            "Buat satu kalimat TLDR yang hanya merangkum FUNGSI BAB berdasarkan struktur skripsi Indonesia.\n"
+            "Gunakan aturan berikut:\n"
+            "- BAB I = latar belakang + masalah + tujuan + ruang lingkup.\n"
+            "- BAB II = teori kunci + konsep inti + penelitian terdahulu.\n"
+            "- BAB III = metode, bahan/alat penting, alur penelitian.\n"
+            "- BAB IV = temuan utama + pokok pembahasan.\n"
+            "- BAB V = kesimpulan inti + saran.\n"
+            "TLDR harus berbeda total dari ringkasan lengkap, tidak boleh meta, dan tidak boleh mengambil kalimat dari ringkasan.\n\n"
+            f"Judul BAB: {sec['judul']}\n"
             "TLDR:"
         )
 
@@ -585,4 +574,5 @@ async def post_comment(comment: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
 
