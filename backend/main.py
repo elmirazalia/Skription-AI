@@ -416,11 +416,15 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
 
         # TLDR
         tldr_prompt = (
-            "Buat satu kalimat TLDR yang sangat padat mengenai inti bab. "
-            "Jangan mengulang kalimat dari ringkasan. "
-            "Jangan mulai dengan 'Bab ini'. "
-            "Langsung ke esensi ilmiah.\n\n"
-            f"TEKS RINGKASAN:\n{final_summary}\n\n"
+            "Buat satu kalimat TLDR yang hanya merangkum FUNGSI BAB berdasarkan struktur skripsi Indonesia.\n"
+            "Gunakan aturan berikut:\n"
+            "- BAB I = latar belakang + masalah + tujuan + ruang lingkup.\n"
+            "- BAB II = teori kunci + konsep inti + penelitian terdahulu.\n"
+            "- BAB III = metode, bahan/alat penting, alur penelitian.\n"
+            "- BAB IV = temuan utama + pokok pembahasan.\n"
+            "- BAB V = kesimpulan inti + saran.\n"
+            "TLDR harus berbeda total dari ringkasan lengkap, tidak boleh meta, dan tidak boleh mengambil kalimat dari ringkasan.\n\n"
+            f"Judul BAB: {sec['judul']}\n"
             "TLDR:"
         )
 
@@ -453,9 +457,9 @@ async def summarize_pdf_per_bab(path: str):
     raw = remove_duplicate_paragraphs(raw)
     raw = clean_reference_noise(raw)
     raw = remove_header_footer(raw)
-    raw = remove_subbab(raw)
     raw = remove_noise_lines(raw)
-
+    raw = remove_subbab(raw)
+    
     if detect_non_thesis(raw):
         return {"file": os.path.basename(path), "sections": [], "note": "File ini tampaknya bukan skripsi atau tugas akhir."}
     sections = split_by_bab(raw)
@@ -559,4 +563,3 @@ async def post_comment(comment: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
-
