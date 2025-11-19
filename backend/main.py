@@ -317,20 +317,22 @@ async def ollama_summarize_async(content: str, semaphore: asyncio.Semaphore) -> 
                 start = time.perf_counter()
                 result = await asyncio.to_thread(_ollama_generate, prompt)
                 elapsed = time.perf_counter() - start
+
             if result:
-                print(f"{Fore.GREEN}[OLLAMA OK]{Style.RESET_ALL} Ringkasan selesai dalam {elapsed:.1f}s (percobaan ke-{attempt})")
+                print(f"{Fore.GREEN}[OLLAMA OK]{Style.RESET_ALL} Ringkasan selesai dalam {elapsed:.1f}s (attempt {attempt})")
                 return result
+
             raise RuntimeError("Empty response from Ollama.")
+
         except Exception as e:
             if attempt < MAX_RETRIES:
                 delay = min(RETRY_BASE_DELAY * (2 ** (attempt - 1)), 8.0)
-                print(f"{Fore.YELLOW}[RETRY]{Style.RESET_ALL} Ollama gagal (percobaan ke-{attempt}): {e}. Menunggu {delay:.1f}s...")
+                print(f"{Fore.YELLOW}[RETRY]{Style.RESET_ALL} Gagal (attempt {attempt}): {e}. Menunggu {delay:.1f}s...")
                 time.sleep(delay)
                 continue
             else:
-                print(f"{Fore.RED}[FALLBACK]{Style.RESET_ALL} Semua percobaan gagal, pakai ringkasan lokal (TF-IDF).")
-                return summarize_text_extractive(content, max_sent=7)
-
+                print(f"{Fore.RED}[OLLAMA FAIL]{Style.RESET_ALL} Semua percobaan gagal. Tidak ada fallback.")
+                return ""  # <-- non fallback
 # RINGKAS PDF PER BAB
 def compress_for_prompt(text: str, max_chars: int = MAX_INPUT_CHARS) -> str:
     if len(text) <= max_chars:
@@ -514,4 +516,5 @@ async def post_comment(comment: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
 
