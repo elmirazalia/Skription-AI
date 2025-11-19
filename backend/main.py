@@ -427,6 +427,7 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
 
         # TLDR
         tldr_prompt = (
+            f"Ringkasan lengkap:\n{final_summary}\n\n"
             "Buat satu kalimat TLDR yang hanya merangkum FUNGSI BAB berdasarkan struktur skripsi Indonesia.\n"
             "Gunakan aturan berikut:\n"
             "- BAB I = latar belakang + masalah + tujuan + ruang lingkup.\n"
@@ -469,7 +470,6 @@ async def summarize_pdf_per_bab(path: str):
     raw = clean_reference_noise(raw)
     raw = remove_header_footer(raw)
     raw = remove_noise_lines(raw)
-    raw = remove_subbab(raw)
     
     if detect_non_thesis(raw):
         return {"file": os.path.basename(path), "sections": [], "note": "File ini tampaknya bukan skripsi atau tugas akhir."}
@@ -574,5 +574,6 @@ async def post_comment(comment: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
 
 
