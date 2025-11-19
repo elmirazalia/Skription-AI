@@ -384,11 +384,11 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
 
         # TLDR
         tldr_prompt = (
-            "Buat satu kalimat TLDR yang sangat padat mengenai inti bab. "
-            "Jangan mengulang kalimat dari ringkasan. "
-            "Jangan mulai dengan 'Bab ini'. "
-            "Langsung ke esensi ilmiah.\n\n"
-            f"TEKS RINGKASAN:\n{final_summary}\n\n"
+            "Buat satu kalimat TLDR yang sangat padat mengenai inti bab. " 
+            "Jangan mengulang kalimat dari ringkasan. " 
+            "Jangan mulai dengan 'Bab ini'. " 
+            "Langsung ke esensi ilmiah.\n\n" 
+            f"TEKS RINGKASAN:\n{final_summary}\n\n" 
             "TLDR:"
         )
 
@@ -420,6 +420,7 @@ async def summarize_pdf_per_bab(path: str):
 
     raw = remove_duplicate_paragraphs(raw)
     raw = clean_reference_noise(raw)
+    raw = remove_subbab(raw)
 
     if detect_non_thesis(raw):
         return {"file": os.path.basename(path), "sections": [], "note": "File ini tampaknya bukan skripsi atau tugas akhir."}
