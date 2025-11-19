@@ -4,14 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pathlib import Path
 from collections import Counter
-import re
-import os
-import string
-import math
-import asyncio
-import time
-import json
-import requests
+import re, os, string, math, asyncio, time, json, requests
 from typing import List, Dict, Any
 from datetime import datetime
 from colorama import Fore, Style, init as colorama_init
@@ -634,3 +627,4 @@ async def post_comment(comment: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
