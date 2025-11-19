@@ -13,7 +13,7 @@ colorama_init(autoreset=True)
 
 # CONFIG & PARAMETER
 OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", "http://localhost:11434/api/generate")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:14b")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:70b")
 
 MAX_CONCURRENCY = 10
 MAX_RETRIES = 4
@@ -298,7 +298,17 @@ SUM_PROMPT_TEMPLATE = (
 # OLLAMA CLIENT DENGAN LOG WARNA
 def _ollama_generate(prompt: str) -> str:
     try:
-        payload = {"model": OLLAMA_MODEL, "prompt": prompt, "stream": False}
+        payload = {
+            "model": OLLAMA_MODEL,
+            "prompt": prompt,
+            "stream": False,
+            "options": {
+            "temperature": 0,
+            "top_p": 1,
+            "top_k": 1,
+            "repeat_penalty": 1.1
+            }
+        }
         resp = requests.post(OLLAMA_API_URL, json=payload, timeout=OLLAMA_TIMEOUT)
         resp.raise_for_status()
         data = resp.json()
@@ -410,6 +420,7 @@ async def summarize_pdf_per_bab(path: str):
 
     raw = remove_duplicate_paragraphs(raw)
     raw = clean_reference_noise(raw)
+    raw = remove_subbab(raw)
 
     if detect_non_thesis(raw):
         return {"file": os.path.basename(path), "sections": [], "note": "File ini tampaknya bukan skripsi atau tugas akhir."}
@@ -514,3 +525,4 @@ async def post_comment(comment: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
