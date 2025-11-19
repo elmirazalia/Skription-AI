@@ -384,11 +384,16 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
 
         # TLDR
         tldr_prompt = (
-            "Buat satu kalimat TLDR yang sangat padat mengenai inti bab. "
-            "Jangan mengulang kalimat dari ringkasan. "
-            "Jangan mulai dengan 'Bab ini'. "
-            "Langsung ke esensi ilmiah.\n\n"
-            f"TEKS RINGKASAN:\n{final_summary}\n\n"
+            "Buat TLDR satu kalimat yang TIDAK merangkum isi teknis bab, "
+            "tetapi hanya merangkum FUNGSI BAB dalam struktur skripsi Indonesia.\n"
+            "Gunakan ketentuan berikut:\n"
+            "- BAB I = konteks, masalah, tujuan, ruang lingkup\n"
+            "- BAB II = teori inti dan penelitian terdahulu\n"
+            "- BAB III = metode, data, alur penelitian\n"
+            "- BAB IV = hasil utama dan pembahasan inti\n"
+            "- BAB V = kesimpulan dan saran\n"
+            "TLDR harus sangat ringkas (maksimum 20 kata), bersifat abstrak, "
+            f"Judul BAB: {sec['judul']}\n"
             "TLDR:"
         )
 
@@ -525,4 +530,5 @@ async def post_comment(comment: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
 
