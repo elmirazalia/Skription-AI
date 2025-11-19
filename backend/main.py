@@ -13,12 +13,12 @@ colorama_init(autoreset=True)
 
 # CONFIG & PARAMETER
 OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", "http://localhost:11434/api/generate")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qween2.5:7b-instruct")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qween2.5:14b")
 
 MAX_CONCURRENCY = 10
-MAX_RETRIES = 10
+MAX_RETRIES = 5
 RETRY_BASE_DELAY = 0.8
-OLLAMA_TIMEOUT = 600
+OLLAMA_TIMEOUT = 300
 MAX_INPUT_CHARS = 50000
 
 # PDF TEXT EXTRACTION
@@ -514,6 +514,7 @@ async def post_comment(comment: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
 
 
 
