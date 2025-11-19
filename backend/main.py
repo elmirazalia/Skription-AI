@@ -146,23 +146,17 @@ def remove_bab_intro_paragraph(text: str) -> str:
 
 def remove_subbab(text: str) -> str:
     """
-    Menghapus seluruh heading subbab dalam berbagai format:
-    - 3.1
-    - 3.1.
-    - 3.1.1
-    - 3.1.1.
-    - 3.1.1.2
-    - bab 3.1.1
-    - bab 3.1.1. judul
-    - 3.1 Judul (unicode whitespace)
-    - 3.1-judul / 3.1: judul / 3.1 – judul
+    Menghapus seluruh subbab dalam berbagai format:
+    - "3.1", "3.1.", "3.1.1", "3.1.1.", "3.1.1.2"
+    - "bab 3.1.1", "bab 3.1.1. judul"
+    - "3.1 Judul", "3.1.1 – Judul"
     """
     pattern = (
         r"(?mi)^"                               # awal baris
-        r"\s*(?:bab\s*)?"                        # optional 'bab'
+        r"\s*(?:bab\s*)?"                        # optional kata 'bab'
         r"\d+(?:\.\d+){1,4}"                     # 3.1 / 3.1.1 / 3.1.1.1
-        r"\.?"                                   # optional titik di akhir
-        r"(?:[\s\-\:\u2000-\u200A].*)?$"         # spasi/tanda baca/whitespace unicode + text
+        r"\.?"                                   # titik opsional
+        r"(?:[\s\-\:\u2000-\u200A].*)?$"         # teks judul
     )
     return re.sub(pattern, "", text)
 
@@ -219,7 +213,7 @@ def split_by_bab(text: str):
     candidates = []
     for idx, p in enumerate(parts):
         p = p.strip()
-        if not p or not re.match(r"^BAB\s+(?:[IVXLCDM]+|\d+)\b", p, flags=re.IGNORECASE):
+        if not p or not re.match(r"^BAB\s+(?:[IVXLCDM]+|[1-9])\b", p, flags=re.IGNORECASE):
             continue
         lines = p.split("\n", 1)
         if len(lines) < 2:
@@ -432,16 +426,27 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
         final_summary = "\n\n".join(dedup)
 
         # TLDR
+        bab_nomor = re.search(r'\d+', sec["judul"])
+        bab = int(bab_nomor.group()) if bab_nomor else 1
+
+        if bab == 1:
+            aturan = ("TLDR harus merangkum empat unsur: latar belakang, rumusan masalah, "
+                      "tujuan penelitian, dan ruang lingkup penelitian.")
+        elif bab == 2:
+            aturan = "TLDR harus merangkum teori inti, konsep penting, dan ringkasan penelitian terdahulu."
+        elif bab == 3:
+            aturan = "TLDR harus merangkum metode inti, bahan/alat kunci, dan alur penelitian."
+        elif bab == 4:
+            aturan = "TLDR harus merangkum temuan utama dan inti pembahasan."
+        elif bab == 5:
+            aturan = "TLDR harus merangkum kesimpulan inti dan saran singkat."
+
         tldr_prompt = (
-            "Buat satu kalimat TLDR yang hanya merangkum FUNGSI BAB berdasarkan struktur skripsi Indonesia.\n"
-            "Gunakan aturan berikut:\n"
-            "- BAB I = latar belakang + masalah + tujuan + ruang lingkup.\n"
-            "- BAB II = teori kunci + konsep inti + penelitian terdahulu.\n"
-            "- BAB III = metode, bahan/alat penting, alur penelitian.\n"
-            "- BAB IV = temuan utama + pokok pembahasan.\n"
-            "- BAB V = kesimpulan inti + saran.\n"
-            "TLDR harus berbeda total dari ringkasan lengkap, tidak boleh meta, dan tidak boleh mengambil kalimat dari ringkasan.\n\n"
-            f"Judul BAB: {sec['judul']}\n"
+            f"Buat satu kalimat TLDR untuk {sec['judul']}.\n"
+            f"{aturan}\n"
+            "TLDR TIDAK boleh meta (tidak boleh ada frasa seperti 'bab ini membahas').\n"
+            "TLDR TIDAK boleh menyalin kalimat dari ringkasan.\n"
+            "TLDR hanya satu kalimat dan harus berbeda total dari ringkasan.\n\n"
             "TLDR:"
         )
 
@@ -580,3 +585,4 @@ async def post_comment(comment: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
