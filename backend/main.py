@@ -13,7 +13,7 @@ colorama_init(autoreset=True)
 
 # CONFIG & PARAMETER
 OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", "http://localhost:11434/api/generate")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:70b")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:14b")
 
 MAX_CONCURRENCY = 10
 MAX_RETRIES = 4
@@ -143,53 +143,7 @@ def remove_bab_intro_paragraph(text: str) -> str:
             final_unique.append(p)
 
     return "\n".join(final_unique)
-
-def remove_subbab(text: str) -> str:
-    """
-    Menghapus seluruh subbab dalam berbagai format:
-    - "3.1", "3.1.", "3.1.1", "3.1.1.", "3.1.1.2"
-    - "bab 3.1.1", "bab 3.1.1. judul"
-    - "3.1 Judul", "3.1.1 – Judul"
-    """
-    pattern = (
-        r"(?mi)^"                               # awal baris
-        r"\s*(?:bab\s*)?"                        # optional kata 'bab'
-        r"\d+(?:\.\d+){1,4}"                     # 3.1 / 3.1.1 / 3.1.1.1
-        r"\.?"                                   # titik opsional
-        r"(?:[\s\-\:\u2000-\u200A].*)?$"         # teks judul
-    )
-    return re.sub(pattern, "", text)
-
-def remove_header_footer(text: str) -> str:
-    lines = text.split("\n")
-    cleaned = []
-    freq = {}
-
-    # hitung frekuensi tiap baris
-    for line in lines:
-        key = line.strip().lower()
-        freq[key] = freq.get(key, 0) + 1
-
-    # buang baris yang muncul di >5 halaman (indikasi footer/header)
-    for line in lines:
-        if freq[line.strip().lower()] > 5:
-            continue
-        cleaned.append(line)
-
-    return "\n".join(cleaned)
-
-def remove_noise_lines(text: str) -> str:
-    lines = text.split("\n")
-    out = []
-    for l in lines:
-        stripped = l.strip()
-        if len(stripped) <= 6:  # angka doang / header kecil
-            continue
-        if re.match(r"^halaman\s+\d+$", stripped.lower()):
-            continue
-        out.append(l)
-    return "\n".join(out)
-
+    
 # SPLIT BAB
 def split_by_bab(text: str):
     # Buang elemen non-bab
@@ -213,7 +167,7 @@ def split_by_bab(text: str):
     candidates = []
     for idx, p in enumerate(parts):
         p = p.strip()
-        if not p or not re.match(r"^BAB\s+(?:[IVXLCDM]+|[1-9])\b", p, flags=re.IGNORECASE):
+        if not p or not re.match(r"^BAB\s+(?:[IVXLCDM]+|\d+)\b", p, flags=re.IGNORECASE):
             continue
         lines = p.split("\n", 1)
         if len(lines) < 2:
@@ -314,33 +268,31 @@ def summarize_text_extractive(text: str, max_sent: int = 8) -> str:
 
 # PROMPT TEMPLATE
 SUM_PROMPT_TEMPLATE = (
-    "Anda harus menghasilkan dua ringkasan: TLDR dan Ringkasan Lengkap.\n\n"
-    
-    "TLDR (sangat penting):\n"
+    "Anda bertugas membuat dua jenis ringkasan dari satu BAB skripsi.\n\n"
+    "1) TLDR (sangat singkat):\n"
     "- Hanya 1 kalimat.\n"
-    "- Merangkum inti BAB sesuai FUNGSI BAB skripsi, bukan isi paragraf pertama.\n"
     "- Harus berbeda total dari ringkasan lengkap.\n"
-    "- Fokus per BAB:\n"
-    "  • BAB I: latar belakang, masalah, tujuan penelitian, ruang lingkup.\n"
-    "  • BAB II: teori inti, konsep penting, penelitian terdahulu.\n"
-    "  • BAB III: metode utama, bahan/alat kunci, alur kerja penelitian.\n"
-    "  • BAB IV: temuan utama dan inti pembahasan.\n"
-    "  • BAB V: kesimpulan inti dan saran singkat.\n"
-    "- Tidak boleh menjelaskan terlalu rinci; cukup inti 1 kalimat.\n\n"
-
-    "RINGKASAN LENGKAP:\n"
-    "- 1–2 paragraf.\n"
-    "- Merangkum isi BAB secara utuh, padat, ilmiah, tanpa repetisi.\n"
-    "- Tidak boleh meniru TLDR dan tidak boleh meta seperti 'bab ini membahas'.\n"
-    "- Tidak boleh mengulang kalimat dari teks sumber.\n\n"
-
-    "Format output wajib:\n"
+    "- Merangkum inti BAB dalam kalimat paling ringkas.\n"
+    "- Tidak boleh mengulang kalimat atau pola bahasa dari ringkasan lengkap.\n\n"
+    "2) Ringkasan Lengkap (1–2 paragraf):\n"
+    "- Sesuai fungsi BAB:\n"
+    "  • BAB I → latar belakang, masalah, tujuan, ruang lingkup\n"
+    "  • BAB II → teori, konsep utama, penelitian terdahulu\n"
+    "  • BAB III → metode, alat & bahan, alur penelitian\n"
+    "  • BAB IV → hasil, temuan, pembahasan\n"
+    "  • BAB V → kesimpulan & saran\n"
+    "- Bahasa ilmiah, padat, tidak repetitif.\n"
+    "Aturan tambahan:\n"
+    "- Jangan mengulang kalimat dari teks asli.\n"
+    "- Jangan membuat 2 paragraf yang maknanya sama.\n"
+    "- Hilangkan teks meta seperti 'Bab ini membahas...' dan referensi.\n"
+    "- TLDR dan ringkasan lengkap harus berbeda total.\n\n"
+    "Format output WAJIB:\n"
     "TLDR:\n"
-    "<tldr>\n\n"
+    "<isi tldr>\n\n"
     "RINGKASAN:\n"
-    "<ringkasan>\n\n"
-    
-    "TEKS SUMBER:\n\"\"\"{content}\"\"\""
+    "<isi ringkasan>\n\n"
+    "TEKS SUMBER:\n\"\"\"{content}\"\"\"\n"
 )
 
 # OLLAMA CLIENT DENGAN LOG WARNA
@@ -397,14 +349,9 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
 
         # bersihkan repetisi, buang intro BAB
         paragraphs = [p.strip() for p in teks.split("\n") if len(p.strip()) > 40]
-
-        # filter subbab
-        isi_bersih = remove_subbab("\n".join(paragraphs))
-
-        # filter lanjutan
-        isi_bersih = remove_bab_intro_paragraph(isi_bersih)
+        isi_bersih = remove_bab_intro_paragraph("\n".join(paragraphs))
         isi_bersih = clean_reference_noise(isi_bersih)
-        
+
         # kompres jika > batas
         isi_kompres = compress_for_prompt(isi_bersih, MAX_INPUT_CHARS)
 
@@ -426,27 +373,12 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
         final_summary = "\n\n".join(dedup)
 
         # TLDR
-        bab_nomor = re.search(r'\d+', sec["judul"])
-        bab = int(bab_nomor.group()) if bab_nomor else 1
-
-        if bab == 1:
-            aturan = ("TLDR harus merangkum empat unsur: latar belakang, rumusan masalah, "
-                      "tujuan penelitian, dan ruang lingkup penelitian.")
-        elif bab == 2:
-            aturan = "TLDR harus merangkum teori inti, konsep penting, dan ringkasan penelitian terdahulu."
-        elif bab == 3:
-            aturan = "TLDR harus merangkum metode inti, bahan/alat kunci, dan alur penelitian."
-        elif bab == 4:
-            aturan = "TLDR harus merangkum temuan utama dan inti pembahasan."
-        elif bab == 5:
-            aturan = "TLDR harus merangkum kesimpulan inti dan saran singkat."
-
         tldr_prompt = (
-            f"Buat satu kalimat TLDR untuk {sec['judul']}.\n"
-            f"{aturan}\n"
-            "TLDR TIDAK boleh meta (tidak boleh ada frasa seperti 'bab ini membahas').\n"
-            "TLDR TIDAK boleh menyalin kalimat dari ringkasan.\n"
-            "TLDR hanya satu kalimat dan harus berbeda total dari ringkasan.\n\n"
+            "Buat satu kalimat TLDR yang sangat padat mengenai inti bab. "
+            "Jangan mengulang kalimat dari ringkasan. "
+            "Jangan mulai dengan 'Bab ini'. "
+            "Langsung ke esensi ilmiah.\n\n"
+            f"TEKS RINGKASAN:\n{final_summary}\n\n"
             "TLDR:"
         )
 
@@ -478,10 +410,7 @@ async def summarize_pdf_per_bab(path: str):
 
     raw = remove_duplicate_paragraphs(raw)
     raw = clean_reference_noise(raw)
-    raw = remove_header_footer(raw)
-    raw = remove_noise_lines(raw)
-    raw = remove_subbab(raw)
-    
+
     if detect_non_thesis(raw):
         return {"file": os.path.basename(path), "sections": [], "note": "File ini tampaknya bukan skripsi atau tugas akhir."}
     sections = split_by_bab(raw)
@@ -585,4 +514,3 @@ async def post_comment(comment: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
-
