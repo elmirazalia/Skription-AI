@@ -145,9 +145,26 @@ def remove_bab_intro_paragraph(text: str) -> str:
     return "\n".join(final_unique)
 
 def remove_subbab(text: str) -> str:
-    # hilangkan heading model subbab "3.1", "4.2.1", dll
-    text = re.sub(r"^\s*\d+(\.\d+){1,3}\s+.*$", "", text, flags=re.MULTILINE)
-    return text
+    """
+    Menghapus seluruh heading subbab dalam berbagai format:
+    - 3.1
+    - 3.1.
+    - 3.1.1
+    - 3.1.1.
+    - 3.1.1.2
+    - bab 3.1.1
+    - bab 3.1.1. judul
+    - 3.1 Judul (unicode whitespace)
+    - 3.1-judul / 3.1: judul / 3.1 – judul
+    """
+    pattern = (
+        r"(?mi)^"                               # awal baris
+        r"\s*(?:bab\s*)?"                        # optional 'bab'
+        r"\d+(?:\.\d+){1,4}"                     # 3.1 / 3.1.1 / 3.1.1.1
+        r"\.?"                                   # optional titik di akhir
+        r"(?:[\s\-\:\u2000-\u200A].*)?$"         # spasi/tanda baca/whitespace unicode + text
+    )
+    return re.sub(pattern, "", text)
 
 def remove_header_footer(text: str) -> str:
     lines = text.split("\n")
