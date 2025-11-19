@@ -268,30 +268,26 @@ def summarize_text_extractive(text: str, max_sent: int = 8) -> str:
 
 # PROMPT TEMPLATE
 SUM_PROMPT_TEMPLATE = (
-    "Anda bertugas membuat dua jenis ringkasan dari satu BAB skripsi.\n\n"
-    "1) TLDR (sangat singkat):\n"
-    "- Hanya 1 kalimat.\n"
-    "- Harus berbeda total dari ringkasan lengkap.\n"
-    "- Merangkum inti BAB dalam kalimat paling ringkas.\n"
-    "- Tidak boleh mengulang kalimat atau pola bahasa dari ringkasan lengkap.\n\n"
-    "2) Ringkasan Lengkap (1–2 paragraf):\n"
-    "- Sesuai fungsi BAB:\n"
-    "  • BAB I → latar belakang, masalah, tujuan, ruang lingkup\n"
-    "  • BAB II → teori, konsep utama, penelitian terdahulu\n"
-    "  • BAB III → metode, alat & bahan, alur penelitian\n"
-    "  • BAB IV → hasil, temuan, pembahasan\n"
-    "  • BAB V → kesimpulan & saran\n"
-    "- Bahasa ilmiah, padat, tidak repetitif.\n"
-    "Aturan tambahan:\n"
-    "- Jangan mengulang kalimat dari teks asli.\n"
-    "- Jangan membuat 2 paragraf yang maknanya sama.\n"
-    "- Hilangkan teks meta seperti 'Bab ini membahas...' dan referensi.\n"
-    "- TLDR dan ringkasan lengkap harus berbeda total.\n\n"
-    "Format output WAJIB:\n"
+    "Buat dua output dari satu BAB skripsi.\n\n"
+    "1) TLDR (1 kalimat):\n"
+    "- Menyatakan fungsi bab (bukan isi teknis).\n"
+    "- Tidak boleh menyalin atau merangkum isi ringkasan.\n\n"
+    "2) RINGKASAN (1–2 paragraf):\n"
+    "- Ringkasan wajib mengikuti fungsi struktural bab:\n"
+    "  • BAB I → latar belakang, masalah, tujuan, ruang lingkup.\n"
+    "  • BAB II → teori inti, konsep utama, penelitian terdahulu.\n"
+    "  • BAB III → metode, data, alat, alur penelitian.\n"
+    "  • BAB IV → temuan utama dan pembahasan.\n"
+    "  • BAB V → kesimpulan dan saran.\n"
+    "- Gunakan TEKS SUMBER hanya sebagai referensi konteks umum.\n"
+    "- Jangan mengambil angka, lokasi, nama tempat, tabel, atau detail berlebihan.\n"
+    "- Tidak boleh mengulang bagian yang tidak relevan atau meta.\n"
+    "- Bahasa ilmiah, rapi, dan tidak repetitif.\n\n"
+    "Format output:\n"
     "TLDR:\n"
-    "<isi tldr>\n\n"
+    "<tldr>\n\n"
     "RINGKASAN:\n"
-    "<isi ringkasan>\n\n"
+    "<ringkasan>\n\n"
     "TEKS SUMBER:\n\"\"\"{content}\"\"\"\n"
 )
 
@@ -525,6 +521,7 @@ async def post_comment(comment: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
 
 
 
