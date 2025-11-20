@@ -18,7 +18,7 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:14b")
 MAX_CONCURRENCY = 6
 MAX_RETRIES = 4
 RETRY_BASE_DELAY = 0.8
-OLLAMA_TIMEOUT = 420
+OLLAMA_TIMEOUT = 600
 MAX_INPUT_CHARS = 50000
 
 # PDF TEXT EXTRACTION
@@ -536,3 +536,4 @@ async def post_comment(comment: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
