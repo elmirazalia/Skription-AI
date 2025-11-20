@@ -13,7 +13,7 @@ colorama_init(autoreset=True)
 
 # CONFIG & PARAMETER
 OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", "http://localhost:11434/api/generate")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:70b")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qween2.5:14b")
 
 MAX_CONCURRENCY = 6
 MAX_RETRIES = 4
@@ -88,52 +88,32 @@ def clean_reference_noise(text):
     return text.strip()
 
 def remove_duplicate_paragraphs(text: str) -> str:
-    """
-    Menghapus paragraf atau kalimat yang muncul dua kali (duplikasi PDF).
-    Cocok untuk PDF skripsi yang layer text-nya double.
-    """
     if not text:
         return text
-
     paras = [p.strip() for p in text.split("\n") if p.strip()]
     unique = []
     seen = set()
-
     for p in paras:
-        key = p[:120].lower()  # fingerprint pendek
+        key = p[:120].lower()
         if key not in seen:
             seen.add(key)
             unique.append(p)
-
     return "\n".join(unique)
-    
+
 def remove_bab_intro_paragraph(text: str) -> str:
-    """
-    Menghapus paragraf pembuka seperti:
-    - 'Bab ini menguraikan...'
-    - 'Bab X membahas...'
-    - 'Bab ini akan menjelaskan...'
-    dan membuang paragraf duplikat otomatis.
-    """
     if not text:
         return text
-
-    # buang paragraf pembuka deskriptif
     paragraphs = [p.strip() for p in text.split("\n") if p.strip()]
     clean_paragraphs = []
-    
     intro_pattern = re.compile(
         r"^\s*(bab\s*(i|ii|iii|iv|v|\d+)?\s*(ini)?\s*(akan\s+)?"
         r"(membahas|menguraikan|menjelaskan|memaparkan|menjabarkan))",
         flags=re.IGNORECASE
     )
-
     for p in paragraphs:
         if intro_pattern.search(p):
             continue
         clean_paragraphs.append(p)
-
-    # hilangkan duplikasi paragraf yang sama
     final_unique = []
     seen = set()
     for p in clean_paragraphs:
@@ -141,16 +121,13 @@ def remove_bab_intro_paragraph(text: str) -> str:
         if key not in seen:
             seen.add(key)
             final_unique.append(p)
-
     return "\n".join(final_unique)
 
 def remove_subbab(text: str) -> str:
-    # Hilangkan penomoran subbab (3.1, 3.2.1, dst.)
     return re.sub(r"\b\d+\.\d+(\.\d+)*\b", "", text)
 
 # SPLIT BAB
 def split_by_bab(text: str):
-    # Buang elemen non-bab
     text = re.sub(r"DAFTAR\s+ISI.*?(?=BAB\s+I\b|BAB\s+1\b)", "", text, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r"DAFTAR\s+(GAMBAR|TABEL).*?(?=BAB\s+I\b|BAB\s+1\b)", "", text, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r"DAFTAR PUSTAKA.*", "", text, flags=re.IGNORECASE)
@@ -158,12 +135,10 @@ def split_by_bab(text: str):
     text = re.sub(r"^.*\.{5,}.*$", "", text, flags=re.MULTILINE)
     text = re.sub(r"(?m)^\s*[ivxlcdm]+\s*$", "", text, flags=re.IGNORECASE)
 
-    # Mulai dari BAB I (jika ada)
     m = re.search(r"(BAB\s+(?:I|1)\b.*)", text, flags=re.IGNORECASE | re.DOTALL)
     if m:
         text = m.group(1)
 
-    # Pecah berdasarkan BAB (angka Romawi atau Arab)
     parts = re.split(r"(?=BAB\s+[IVXLCDM]+\b)", text, flags=re.IGNORECASE)
     if len(parts) <= 1:
         parts = re.split(r"(?=BAB\s+\d+\b)", text, flags=re.IGNORECASE)
@@ -183,7 +158,6 @@ def split_by_bab(text: str):
     if not candidates:
         return []
 
-    # Kata kunci teknis yang menaikkan skor (bahasa Indonesia + simbol)
     KEYWORDS = [
         "metode","sintesis","represipitasi","psa","karakteris","karakteriza",
         "imobilis","imobiliza","µpad","μpad","nanokristal","bhb","triptamin",
@@ -194,50 +168,38 @@ def split_by_bab(text: str):
     def score_text(t: str) -> int:
         s = 0
         low_t = t.lower()
-        # dasar: panjang
         s += min(len(low_t), 20000)
-        # kata kunci
         key_count = sum(1 for k in KEYWORDS if k in low_t)
         s += key_count * 800
-        # jumlah kalimat berguna
         sent_count = len(re.findall(r'[\.!?]', low_t))
         s += min(sent_count, 50) * 50
-        # angka/ukur (adanya angka biasanya tanda data atau parameter)
         if re.search(r'\d', low_t):
             s += 500
-        # jika ada banyak istilah ilmiah (huruf panjang kata)
         long_word_count = sum(1 for w in re.findall(r'\w+', low_t) if len(w) > 6)
         s += min(long_word_count, 200) * 5
-        # penalti jika hanya frasa meta seperti "Bab ini membahas" tanpa kata kunci
         if re.search(r'\bbab\s+\w+\s+membahas', low_t) and key_count == 0 and len(low_t) < 1000:
             s -= 10000
         return s
 
-    # Kelompokkan kandidat berdasarkan judul (BAB I, BAB II, ...)
     groups = {}
     for c in candidates:
         key = re.sub(r'\s+', ' ', c["judul"].upper().strip())
         groups.setdefault(key, []).append(c)
 
-    # Pilih kandidat terbaik per grup (skor tertinggi), simpan pos aslinya
     chosen = []
     for key, items in groups.items():
         best = max(items, key=lambda it: score_text(it["isi"]))
         best["score"] = score_text(best["isi"])
         chosen.append(best)
 
-    # Urutkan berdasarkan posisi terawal kemunculan di dokumen
     chosen.sort(key=lambda x: x["pos"])
 
-    # Final cleaning: buang yang sangat pendek dan tidak informatif
     final = []
     for ch in chosen:
         isi_bersih = re.sub(r'\s+', ' ', ch["isi"]).strip()
-        # jika sangat pendek dan tidak mengandung kata kunci penting, skip
         if len(isi_bersih) < 400 and all(k not in isi_bersih.lower() for k in KEYWORDS):
             print(f"{Fore.YELLOW}[FILTER]{Style.RESET_ALL} Menghapus {ch['judul']} (terlalu pendek/tidak teknis).")
             continue
-        # Hapus paragraf intro “Bab ini membahas …”
         isi_final = remove_bab_intro_paragraph(ch["isi"])
         final.append({"judul": ch["judul"], "isi": isi_final})
 
@@ -368,32 +330,27 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
         if len(teks) < 80:
             return {"judul": sec["judul"], "ringkasan_bab": ""}
 
-        # bersihkan repetisi, buang intro BAB
         paragraphs = [p.strip() for p in teks.split("\n") if len(p.strip()) > 40]
         isi_bersih = remove_bab_intro_paragraph("\n".join(paragraphs))
         isi_bersih = clean_reference_noise(isi_bersih)
 
-        # kompres jika > batas
         isi_kompres = compress_for_prompt(isi_bersih, MAX_INPUT_CHARS)
 
-        # panggil Ollama
         summary = await ollama_summarize_async(isi_kompres, semaphore)
         summary = summary.strip()
 
-        # bersihkan output LLM dari repetisi dua paragraf sama
         out_paras = [p.strip() for p in summary.split("\n") if p.strip()]
         dedup = []
         seen = set()
 
         for p in out_paras:
-            key = re.sub(r"\s+", " ", p.lower())[:90]  # normalisasi fingerprint
+            key = re.sub(r"\s+", " ", p.lower())[:90]
             if key not in seen:
                 seen.add(key)
                 dedup.append(p)
     
         final_summary = "\n\n".join(dedup)
 
-        # TLDR
         tldr_prompt = (
             "Buat satu kalimat TLDR yang sangat padat mengenai inti bab. "
             "Jangan mengulang kalimat dari ringkasan. "
@@ -440,7 +397,6 @@ async def summarize_pdf_per_bab(path: str):
     results = await summarize_sections_parallel(sections)
     return {"file": os.path.basename(path), "sections": results}
 
-# EKSPOR DOCX & PDF
 from docx import Document
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
@@ -466,7 +422,6 @@ def export_all(data, out_docx, out_pdf):
         elements.append(Spacer(1, 12))
     pdf.build(elements)
 
-# FASTAPI APP
 app = FastAPI(title="DocuSum AI (Ollama)", version="9.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
@@ -501,7 +456,6 @@ async def download_file(filename: str):
         raise HTTPException(status_code=404, detail="File tidak ditemukan")
     return FileResponse(file_path, filename=filename)
 
-# KOMENTAR GLOBAL
 COMMENTS_FILE = Path("comments.json")
 
 def load_comments() -> list:
@@ -536,5 +490,3 @@ async def post_comment(comment: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
-
-
