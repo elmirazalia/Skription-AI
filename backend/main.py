@@ -263,19 +263,19 @@ SUM_PROMPT_TEMPLATE = (
 
 # OLLAMA CLIENT DENGAN LOG WARNA
 def _ollama_generate(prompt: str) -> str:
-    try:
-        payload = {
-            "model": OLLAMA_MODEL,
-            "prompt": prompt,
-            "stream": False,
-            "options": {
-                "temperature": 0,
-                "top_p": 1,
-                "top_k": 1,
-                "repeat_penalty": 1.1
-            }
+    payload = {
+        "model": OLLAMA_MODEL,
+        "prompt": prompt,
+        "stream": False,
+        "options": {
+            "temperature": 0,
+            "top_p": 1,
+            "top_k": 1,
+            "repeat_penalty": 1.1
         }
+    }
 
+    try:
         resp = requests.post(
             OLLAMA_API_URL,
             json=payload,
@@ -284,35 +284,26 @@ def _ollama_generate(prompt: str) -> str:
         resp.raise_for_status()
 
         data = resp.json()
-        return (data.get("response") or "").strip()
+        result = (data.get("response") or "").strip()
+
+        if not result:
+            raise RuntimeError("Ollama memberi respons kosong.")
+
+        return result
 
     except Exception as e:
-        print(f"{Fore.RED}[OLLAMA ERROR]{Style.RESET_ALL} {e}")
-        return ""
+        raise RuntimeError(f"Gagal menghubungi Ollama: {e}")
 
 async def ollama_summarize_async(content: str, semaphore: asyncio.Semaphore) -> str:
     prompt = SUM_PROMPT_TEMPLATE.format(content=content)
-    attempt = 0
-    while True:
-        attempt += 1
-        try:
-            async with semaphore:
-                start = time.perf_counter()
-                result = await asyncio.to_thread(_ollama_generate, prompt)
-                elapsed = time.perf_counter() - start
-            if result:
-                print(f"{Fore.GREEN}[OLLAMA OK]{Style.RESET_ALL} Ringkasan selesai dalam {elapsed:.1f}s (percobaan ke-{attempt})")
-                return result
-            raise RuntimeError("Empty response from Ollama.")
-        except Exception as e:
-            if attempt < MAX_RETRIES:
-                delay = min(RETRY_BASE_DELAY * (2 ** (attempt - 1)), 8.0)
-                print(f"{Fore.YELLOW}[RETRY]{Style.RESET_ALL} Ollama gagal (percobaan ke-{attempt}): {e}. Menunggu {delay:.1f}s...")
-                time.sleep(delay)
-                continue
-            else:
-                print(f"{Fore.RED}[FALLBACK]{Style.RESET_ALL} Semua percobaan gagal, pakai ringkasan lokal (TF-IDF).")
-                return summarize_text_extractive(content, max_sent=7)
+
+    async with semaphore:
+        start = time.perf_counter()
+        result = await asyncio.to_thread(_ollama_generate, prompt)
+        elapsed = time.perf_counter() - start
+        print(f"{Fore.GREEN}[OLLAMA]{Style.RESET_ALL} Berhasil dalam {elapsed:.1f}s")
+
+    return result
 
 # RINGKAS PDF PER BAB
 def compress_for_prompt(text: str, max_chars: int = MAX_INPUT_CHARS) -> str:
@@ -324,21 +315,23 @@ def compress_for_prompt(text: str, max_chars: int = MAX_INPUT_CHARS) -> str:
 
 async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Dict[str, Any]]:
     semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
+    tasks = []
 
     async def _process(sec):
         teks = (sec.get("isi") or "").strip()
         if len(teks) < 80:
-            return {"judul": sec["judul"], "ringkasan_bab": ""}
+            return {"judul": sec["judul"], "ringkasan_bab": "", "tldr": ""}
 
         paragraphs = [p.strip() for p in teks.split("\n") if len(p.strip()) > 40]
         isi_bersih = remove_bab_intro_paragraph("\n".join(paragraphs))
         isi_bersih = clean_reference_noise(isi_bersih)
-
         isi_kompres = compress_for_prompt(isi_bersih, MAX_INPUT_CHARS)
 
+        # wajib Ollama → gagal = error
         summary = await ollama_summarize_async(isi_kompres, semaphore)
         summary = summary.strip()
 
+        # bersihkan duplikat sederhana
         out_paras = [p.strip() for p in summary.split("\n") if p.strip()]
         dedup = []
         seen = set()
@@ -348,20 +341,18 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
             if key not in seen:
                 seen.add(key)
                 dedup.append(p)
-    
+
         final_summary = "\n\n".join(dedup)
 
+        # TLDR dari LLM juga (Wajib)
         tldr_prompt = (
-            "Buat satu kalimat TLDR yang sangat padat mengenai inti bab. "
-            "Jangan mengulang kalimat dari ringkasan. "
-            "Jangan mulai dengan 'Bab ini'. "
-            "Langsung ke esensi ilmiah.\n\n"
-            f"TEKS RINGKASAN:\n{final_summary}\n\n"
+            "Buat satu kalimat TLDR sangat ringkas, tidak mengulang kalimat ringkasan.\n"
+            f"RINGKASAN:\n{final_summary}\n\n"
             "TLDR:"
         )
 
         tldr_text = await asyncio.to_thread(_ollama_generate, tldr_prompt)
-        tldr_text = (tldr_text or "").strip()
+        tldr_text = tldr_text.strip()
 
         return {
             "judul": sec["judul"],
@@ -369,7 +360,10 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
             "tldr": tldr_text
         }
 
-    return await asyncio.gather(*[asyncio.create_task(_process(sec)) for sec in sections])
+    for sec in sections:
+        tasks.append(asyncio.create_task(_process(sec)))
+
+    return await asyncio.gather(*tasks)
 
 def detect_non_thesis(text: str) -> bool:
     if not text or len(text) < 1000: return True
@@ -490,4 +484,3 @@ async def post_comment(comment: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
-
