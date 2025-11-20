@@ -15,10 +15,10 @@ colorama_init(autoreset=True)
 OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", "http://localhost:11434/api/generate")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:70b")
 
-MAX_CONCURRENCY = 6
+MAX_CONCURRENCY = 10
 MAX_RETRIES = 4
 RETRY_BASE_DELAY = 0.8
-OLLAMA_TIMEOUT = 600
+OLLAMA_TIMEOUT = 180
 MAX_INPUT_CHARS = 50000
 
 # PDF TEXT EXTRACTION
@@ -143,11 +143,7 @@ def remove_bab_intro_paragraph(text: str) -> str:
             final_unique.append(p)
 
     return "\n".join(final_unique)
-
-def remove_subbab(text: str) -> str:
-    # Hilangkan penomoran subbab (3.1, 3.2.1, dst.)
-    return re.sub(r"\b\d+\.\d+(\.\d+)*\b", "", text)
-
+    
 # SPLIT BAB
 def split_by_bab(text: str):
     # Buang elemen non-bab
@@ -302,28 +298,11 @@ SUM_PROMPT_TEMPLATE = (
 # OLLAMA CLIENT DENGAN LOG WARNA
 def _ollama_generate(prompt: str) -> str:
     try:
-        payload = {
-            "model": OLLAMA_MODEL,
-            "prompt": prompt,
-            "stream": False,
-            "options": {
-                "temperature": 0,
-                "top_p": 1,
-                "top_k": 1,
-                "repeat_penalty": 1.1
-            }
-        }
-
-        resp = requests.post(
-            OLLAMA_API_URL,
-            json=payload,
-            timeout=OLLAMA_TIMEOUT
-        )
+        payload = {"model": OLLAMA_MODEL, "prompt": prompt, "stream": False}
+        resp = requests.post(OLLAMA_API_URL, json=payload, timeout=OLLAMA_TIMEOUT)
         resp.raise_for_status()
-
         data = resp.json()
         return (data.get("response") or "").strip()
-
     except Exception as e:
         print(f"{Fore.RED}[OLLAMA ERROR]{Style.RESET_ALL} {e}")
         return ""
@@ -431,7 +410,6 @@ async def summarize_pdf_per_bab(path: str):
 
     raw = remove_duplicate_paragraphs(raw)
     raw = clean_reference_noise(raw)
-    raw = remove_subbab(raw)
 
     if detect_non_thesis(raw):
         return {"file": os.path.basename(path), "sections": [], "note": "File ini tampaknya bukan skripsi atau tugas akhir."}
@@ -467,7 +445,7 @@ def export_all(data, out_docx, out_pdf):
     pdf.build(elements)
 
 # FASTAPI APP
-app = FastAPI(title="Skription AI (Ollama)", version="9.0")
+app = FastAPI(title="DocuSum AI (Ollama)", version="9.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 UPLOAD_DIR = Path("uploads")
