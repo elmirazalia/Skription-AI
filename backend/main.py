@@ -13,7 +13,7 @@ colorama_init(autoreset=True)
 
 # CONFIG & PARAMETER
 OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", "http://localhost:11434/api/generate")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:70b")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma2:9b")
 
 MAX_CONCURRENCY = 6
 MAX_RETRIES = 4
@@ -536,3 +536,4 @@ async def post_comment(comment: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
