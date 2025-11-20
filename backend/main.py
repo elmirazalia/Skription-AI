@@ -8,25 +8,20 @@ import re, os, string, math, asyncio, time, json, requests
 from typing import List, Dict, Any
 from datetime import datetime
 
-# 🌈 COLOR LOGGING
 from colorama import Fore, Style, init as colorama_init
 colorama_init(autoreset=True)
 
-# ===============================================================
 # CONFIG & PARAMETER
-# ===============================================================
 OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", "http://localhost:11434/api/generate")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma2:9b")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:70b")
 
-MAX_CONCURRENCY = 10
+MAX_CONCURRENCY = 6
 MAX_RETRIES = 4
 RETRY_BASE_DELAY = 0.8
-OLLAMA_TIMEOUT = 180
+OLLAMA_TIMEOUT = 600
 MAX_INPUT_CHARS = 50000
 
-# ===============================================================
 # PDF TEXT EXTRACTION
-# ===============================================================
 def read_pdf_text(path: str) -> str:
     text = ""
     try:
@@ -91,45 +86,69 @@ def clean_reference_noise(text):
     text = re.sub(r"(Universitas|Fakultas|Program Studi|Jurusan|Departemen).*", "", text)
     text = re.sub(r"\s{2,}", " ", text)
     return text.strip()
+
+def remove_duplicate_paragraphs(text: str) -> str:
+    """
+    Menghapus paragraf atau kalimat yang muncul dua kali (duplikasi PDF).
+    Cocok untuk PDF skripsi yang layer text-nya double.
+    """
+    if not text:
+        return text
+
+    paras = [p.strip() for p in text.split("\n") if p.strip()]
+    unique = []
+    seen = set()
+
+    for p in paras:
+        key = p[:120].lower()  # fingerprint pendek
+        if key not in seen:
+            seen.add(key)
+            unique.append(p)
+
+    return "\n".join(unique)
     
 def remove_bab_intro_paragraph(text: str) -> str:
     """
     Menghapus paragraf pembuka seperti:
-      - 'BAB 1 membahas ...'
-      - 'BAB II memaparkan ...'
-      - 'BAB ini menjelaskan ...'
-      - 'BAB 3 akan menguraikan ...'
-      - 'BAB V menyajikan ...'
-    supaya ringkasan langsung ke isi ilmiah.
+    - 'Bab ini menguraikan...'
+    - 'Bab X membahas...'
+    - 'Bab ini akan menjelaskan...'
+    dan membuang paragraf duplikat otomatis.
     """
-    if not text or len(text.strip()) < 50:
+    if not text:
         return text
 
-    first_block = "\n".join(text.strip().split("\n")[:3])
-
-    pattern = re.compile(
-        r"^\s*("
-        r"bab(\s+[ivxlcdm]+|\s*\d+)?(\s+ini)?\s*"
-        r"(akan\s+)?"
-        r"(membahas|menjelaskan|menguraikan|memaparkan|mendeskripsikan|menjabarkan|menyajikan)"
-        r")\b",
+    # buang paragraf pembuka deskriptif
+    paragraphs = [p.strip() for p in text.split("\n") if p.strip()]
+    clean_paragraphs = []
+    
+    intro_pattern = re.compile(
+        r"^\s*(bab\s*(i|ii|iii|iv|v|\d+)?\s*(ini)?\s*(akan\s+)?"
+        r"(membahas|menguraikan|menjelaskan|memaparkan|menjabarkan))",
         flags=re.IGNORECASE
     )
 
-    if pattern.search(first_block):
-        print(f"{Fore.CYAN}[CLEAN]{Style.RESET_ALL} Menghapus paragraf pembuka deskriptif Bab.")
-        parts = re.split(r"\n\s*\n", text.strip(), maxsplit=1)
-        if len(parts) > 1:
-            return parts[1].strip()
-        else:
-            sentences = re.split(r'(?<=[.!?])\s+', text.strip(), maxsplit=1)
-            return sentences[1].strip() if len(sentences) > 1 else text
+    for p in paragraphs:
+        if intro_pattern.search(p):
+            continue
+        clean_paragraphs.append(p)
 
-    return text
-    
-# ===============================================================
+    # hilangkan duplikasi paragraf yang sama
+    final_unique = []
+    seen = set()
+    for p in clean_paragraphs:
+        key = p[:80].lower()
+        if key not in seen:
+            seen.add(key)
+            final_unique.append(p)
+
+    return "\n".join(final_unique)
+
+def remove_subbab(text: str) -> str:
+    # Hilangkan penomoran subbab (3.1, 3.2.1, dst.)
+    return re.sub(r"\b\d+\.\d+(\.\d+)*\b", "", text)
+
 # SPLIT BAB
-# ===============================================================
 def split_by_bab(text: str):
     # Buang elemen non-bab
     text = re.sub(r"DAFTAR\s+ISI.*?(?=BAB\s+I\b|BAB\s+1\b)", "", text, flags=re.DOTALL | re.IGNORECASE)
@@ -224,9 +243,7 @@ def split_by_bab(text: str):
 
     return final
 
-# ===============================================================
 # UTIL: Tokenisasi & Ringkasan Ekstraktif Lokal
-# ===============================================================
 STOPWORDS = set("yang dan di ke dari untuk pada adalah dengan dalam ini itu serta juga tidak dapat atau oleh bagi agar sudah akan para sebagai tersebut karena maka sehingga terhadap serta olehnya".split())
 PUNCT = str.maketrans("", "", string.punctuation)
 
@@ -253,35 +270,60 @@ def summarize_text_extractive(text: str, max_sent: int = 8) -> str:
     top_idx = sorted(range(N), key=lambda i: scores[i], reverse=True)[:max_sent]
     return " ".join([sents[i] for i in sorted(top_idx)])
 
-# ===============================================================
 # PROMPT TEMPLATE
-# ===============================================================
 SUM_PROMPT_TEMPLATE = (
-    "Tugas kamu adalah merangkum isi BAB dari dokumen ilmiah secara akademik. "
-    "Abaikan semua teks yang tidak relevan dengan isi BAB.\n\n"
-    "PANDUAN ISI PER BAB:\n"
-    "- BAB 1: latar belakang, rumusan masalah, tujuan, manfaat, ruang lingkup.\n"
-    "- BAB 2: teori utama, konsep penting, penelitian terdahulu, kerangka pemikiran.\n"
-    "- BAB 3: metode penelitian, data/sampel, teknik analisis.\n"
-    "- BAB 4: hasil penelitian dan analisis pembahasan.\n"
-    "- BAB 5: kesimpulan penelitian dan saran.\n\n"
-    "WAJIB DIBUANG:\n"
-    "- URL, referensi, daftar pustaka, nama penulis, tahun, nomor tabel/gambar.\n\n"
-    "Gunakan bahasa ilmiah mengalir, 1–3 paragraf.\n\n"
-    "TEKS SUMBER:\n\"\"\"{content}\"\"\"\n\n"
+    "Anda bertugas membuat dua jenis ringkasan dari satu BAB skripsi.\n\n"
+    "1) TLDR (sangat singkat):\n"
+    "- Hanya 1 kalimat.\n"
+    "- Harus berbeda total dari ringkasan lengkap.\n"
+    "- Merangkum inti BAB dalam kalimat paling ringkas.\n"
+    "- Tidak boleh mengulang kalimat atau pola bahasa dari ringkasan lengkap.\n\n"
+    "2) Ringkasan Lengkap (1–2 paragraf):\n"
+    "- Sesuai fungsi BAB:\n"
+    "  • BAB I → latar belakang, masalah, tujuan, ruang lingkup\n"
+    "  • BAB II → teori, konsep utama, penelitian terdahulu\n"
+    "  • BAB III → metode, alat & bahan, alur penelitian\n"
+    "  • BAB IV → hasil, temuan, pembahasan\n"
+    "  • BAB V → kesimpulan & saran\n"
+    "- Bahasa ilmiah, padat, tidak repetitif.\n"
+    "Aturan tambahan:\n"
+    "- Jangan mengulang kalimat dari teks asli.\n"
+    "- Jangan membuat 2 paragraf yang maknanya sama.\n"
+    "- Hilangkan teks meta seperti 'Bab ini membahas...' dan referensi.\n"
+    "- TLDR dan ringkasan lengkap harus berbeda total.\n\n"
+    "Format output WAJIB:\n"
+    "TLDR:\n"
+    "<isi tldr>\n\n"
     "RINGKASAN:\n"
+    "<isi ringkasan>\n\n"
+    "TEKS SUMBER:\n\"\"\"{content}\"\"\"\n"
 )
 
-# ===============================================================
 # OLLAMA CLIENT DENGAN LOG WARNA
-# ===============================================================
 def _ollama_generate(prompt: str) -> str:
     try:
-        payload = {"model": OLLAMA_MODEL, "prompt": prompt, "stream": False}
-        resp = requests.post(OLLAMA_API_URL, json=payload, timeout=OLLAMA_TIMEOUT)
+        payload = {
+            "model": OLLAMA_MODEL,
+            "prompt": prompt,
+            "stream": False,
+            "options": {
+                "temperature": 0,
+                "top_p": 1,
+                "top_k": 1,
+                "repeat_penalty": 1.1
+            }
+        }
+
+        resp = requests.post(
+            OLLAMA_API_URL,
+            json=payload,
+            timeout=OLLAMA_TIMEOUT
+        )
         resp.raise_for_status()
+
         data = resp.json()
         return (data.get("response") or "").strip()
+
     except Exception as e:
         print(f"{Fore.RED}[OLLAMA ERROR]{Style.RESET_ALL} {e}")
         return ""
@@ -310,9 +352,7 @@ async def ollama_summarize_async(content: str, semaphore: asyncio.Semaphore) -> 
                 print(f"{Fore.RED}[FALLBACK]{Style.RESET_ALL} Semua percobaan gagal, pakai ringkasan lokal (TF-IDF).")
                 return summarize_text_extractive(content, max_sent=7)
 
-# ===============================================================
 # RINGKAS PDF PER BAB
-# ===============================================================
 def compress_for_prompt(text: str, max_chars: int = MAX_INPUT_CHARS) -> str:
     if len(text) <= max_chars:
         return text
@@ -322,15 +362,56 @@ def compress_for_prompt(text: str, max_chars: int = MAX_INPUT_CHARS) -> str:
 
 async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Dict[str, Any]]:
     semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
+
     async def _process(sec):
-        isi = (sec.get("isi") or "").strip()
-        paragraf = [p.strip() for p in isi.split("\n") if len(p.strip()) > 40]
-        if not paragraf:
-            return {"judul": sec.get("judul", ""), "ringkasan_bab": ""}
-        isi_bersih = clean_reference_noise("\n".join(paragraf[:70]))
-        compressed = compress_for_prompt(isi_bersih, MAX_INPUT_CHARS)
-        summary = await ollama_summarize_async(compressed, semaphore)
-        return {"judul": sec.get("judul", ""), "ringkasan_bab": summary}
+        teks = (sec.get("isi") or "").strip()
+        if len(teks) < 80:
+            return {"judul": sec["judul"], "ringkasan_bab": ""}
+
+        # bersihkan repetisi, buang intro BAB
+        paragraphs = [p.strip() for p in teks.split("\n") if len(p.strip()) > 40]
+        isi_bersih = remove_bab_intro_paragraph("\n".join(paragraphs))
+        isi_bersih = clean_reference_noise(isi_bersih)
+
+        # kompres jika > batas
+        isi_kompres = compress_for_prompt(isi_bersih, MAX_INPUT_CHARS)
+
+        # panggil Ollama
+        summary = await ollama_summarize_async(isi_kompres, semaphore)
+        summary = summary.strip()
+
+        # bersihkan output LLM dari repetisi dua paragraf sama
+        out_paras = [p.strip() for p in summary.split("\n") if p.strip()]
+        dedup = []
+        seen = set()
+
+        for p in out_paras:
+            key = re.sub(r"\s+", " ", p.lower())[:90]  # normalisasi fingerprint
+            if key not in seen:
+                seen.add(key)
+                dedup.append(p)
+    
+        final_summary = "\n\n".join(dedup)
+
+        # TLDR
+        tldr_prompt = (
+            "Buat satu kalimat TLDR yang sangat padat mengenai inti bab. "
+            "Jangan mengulang kalimat dari ringkasan. "
+            "Jangan mulai dengan 'Bab ini'. "
+            "Langsung ke esensi ilmiah.\n\n"
+            f"TEKS RINGKASAN:\n{final_summary}\n\n"
+            "TLDR:"
+        )
+
+        tldr_text = await asyncio.to_thread(_ollama_generate, tldr_prompt)
+        tldr_text = (tldr_text or "").strip()
+
+        return {
+            "judul": sec["judul"],
+            "ringkasan_bab": final_summary,
+            "tldr": tldr_text
+        }
+
     return await asyncio.gather(*[asyncio.create_task(_process(sec)) for sec in sections])
 
 def detect_non_thesis(text: str) -> bool:
@@ -347,6 +428,11 @@ async def summarize_pdf_per_bab(path: str):
     raw = read_pdf_text(path)
     if not raw.strip():
         return {"file": os.path.basename(path), "sections": [], "note": "File kosong atau tidak dapat dibaca."}
+
+    raw = remove_duplicate_paragraphs(raw)
+    raw = clean_reference_noise(raw)
+    raw = remove_subbab(raw)
+
     if detect_non_thesis(raw):
         return {"file": os.path.basename(path), "sections": [], "note": "File ini tampaknya bukan skripsi atau tugas akhir."}
     sections = split_by_bab(raw)
@@ -354,9 +440,7 @@ async def summarize_pdf_per_bab(path: str):
     results = await summarize_sections_parallel(sections)
     return {"file": os.path.basename(path), "sections": results}
 
-# ===============================================================
 # EKSPOR DOCX & PDF
-# ===============================================================
 from docx import Document
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
@@ -382,10 +466,8 @@ def export_all(data, out_docx, out_pdf):
         elements.append(Spacer(1, 12))
     pdf.build(elements)
 
-# ===============================================================
 # FASTAPI APP
-# ===============================================================
-app = FastAPI(title="DocuSum AI (Ollama)", version="9.0")
+app = FastAPI(title="Skription AI (Ollama)", version="9.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 UPLOAD_DIR = Path("uploads")
@@ -419,9 +501,7 @@ async def download_file(filename: str):
         raise HTTPException(status_code=404, detail="File tidak ditemukan")
     return FileResponse(file_path, filename=filename)
 
-# ===============================================================
 # KOMENTAR GLOBAL
-# ===============================================================
 COMMENTS_FILE = Path("comments.json")
 
 def load_comments() -> list:
