@@ -25,7 +25,7 @@ class FileUploader {
         this.processedResults = [];
         this.BASE_API = location.hostname.includes("localhost")
             ? "http://localhost:8000"
-            : "http://10.28.85.183:8000";
+            : "https://docusum.onrender.com";
 
         this.init();
     }
@@ -221,4 +221,5 @@ function convertToBullets(text) {
 }
 
 window.convertSectionsToBullets = convertToBullets;
+
 
