@@ -408,19 +408,29 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
             fokus = "kesimpulan utama penelitian dan saran lanjutan"
         else:
             fokus = "inti utama bab"
-        
-        tldr_prompt = (
-            f"Buat satu kalimat TLDR yang sangat singkat dan berbeda total dari ringkasan berikut.\n"
-            f"Aturan:\n"
-            f"- Tidak boleh menyalin atau memodifikasi frasa dari ringkasan.\n"
-            f"- Tidak boleh menggunakan pola kalimat yang mirip.\n"
-            f"- Tidak boleh memakai frasa pembuka (mis. 'Bab ini', 'Penelitian ini').\n"
-            f"- Harus langsung menyatakan inti bab.\n"
-            f"- Harus relevan dengan fokus bab: {fokus}\n\n"
-            f"Ringkasan:\n{final_summary}\n\n"
-            f"TLDR:"
-        )
 
+        tldr_prompt = f"""
+Buat TLDR dalam bentuk **satu paragraf ringkas** (3–5 kalimat pendek).
+TLDR harus merangkum inti BAB secara lengkap sesuai fungsinya:
+
+- Jika BAB I → sertakan latar belakang, rumusan masalah, tujuan, manfaat penelitian.
+- Jika BAB II → jelaskan ringkas teori utama & penelitian terdahulu.
+- Jika BAB III → jelaskan metode, desain penelitian, populasi & teknik analisis.
+- Jika BAB IV → rangkum hasil utama dan pembahasan.
+- Jika BAB V → rangkum kesimpulan dan saran.
+
+Aturan penting:
+- Tidak boleh menyalin frasa dari ringkasan.
+- Tidak boleh memakai pola kalimat yang mirip dengan ringkasan.
+- Harus terasa seperti versi mini dari seluruh BAB.
+
+Fokus BAB: {fokus}
+
+Ringkasan lengkap:
+{final_summary}
+
+TLDR (satu paragraf, 3–5 kalimat):
+"""
         tldr_text = await asyncio.to_thread(_ollama_generate, tldr_prompt)
         tldr_text = (tldr_text or '').strip()
 
