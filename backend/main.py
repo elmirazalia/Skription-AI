@@ -426,7 +426,7 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
                 dedup.append(p)
         final_summary = "\n\n".join(dedup)
 
-        # -------- TLDR FINAL (lebih baik dari TLDR asli) --------
+        # aturan tldr
         judul_bab = sec["judul"].lower()
 
         if "bab i" in judul_bab or "bab 1" in judul_bab:
@@ -442,24 +442,24 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
         else:
             fokus = "inti utama bab"
 
-        # TLDR baru (mini ringkasan 3–5 kalimat)
+        # TLDR
         tldr_prompt = f"""
-Buat TLDR dalam bentuk satu paragraf ringkas (3–5 kalimat pendek).
-TLDR harus merangkum inti BAB sesuai fungsinya:
+Buat TLDR dalam bentuk satu paragraf ringkas (3–5 kalimat) yang **berbeda total** dari ringkasan lengkap.
+Syarat WAJIB:
+- Gunakan sudut pandang berbeda (lebih umum dan konseptual).
+- Jangan mengulang kalimat, struktur kalimat, atau urutan ide dari ringkasan lengkap.
+- Jangan memakai diksi yang sangat mirip.
+- Jangan menyalin frase penting apa pun dari ringkasan lengkap.
+- TLDR harus seperti "penjelasan cepat untuk orang yang terburu-buru".
 
-- Fokus BAB: {fokus}
+Fokus BAB: {fokus}
 
-Aturan:
-- Tidak boleh menyalin frasa dari ringkasan.
-- Tidak boleh meniru struktur atau pola kalimat ringkasan.
-- Harus terasa sebagai versi mini dari bab.
-
-RINGKASAN:
+Ringkasan lengkap (untuk referensi hal yang *tidak boleh* kamu ulang):
 {final_summary}
 
-TLDR:
+TLDR (1 paragraf, 3–5 kalimat, gaya berbeda total):
 """
-
+        
         tldr_final = await asyncio.to_thread(_ollama_generate, tldr_prompt)
         tldr_final = (tldr_final or "").strip()
 
@@ -595,4 +595,3 @@ async def post_comment(comment: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
-
