@@ -298,11 +298,6 @@ function splitSentences(t) {
   return t.split(/(?<=[.!?])\s+/).map(x => x.trim()).filter(Boolean);
 }
 
-function makeTLDR(t) {
-  const s = splitSentences(t);
-  return s.slice(0, 2).join(" ");
-}
-
 function makeBulletDOM(t) {
   const ul = document.createElement("ul");
   splitSentences(t).forEach(s => {
@@ -404,8 +399,10 @@ function render() {
       const tldr = document.createElement("div");
       tldr.className = "tldr";
       tldr.style.display = SHOW_TLDR ? "block" : "none";
-      tldr.textContent = s.tldr || "(TLDR tidak tersedia)";
-
+      tldr.textContent = s.tldr && s.tldr.trim().length > 0
+      ? s.tldr
+      : "(TLDR tidak tersedia)";
+      
       const bullets = document.createElement("div");
       bullets.className = "bullet-text";
       bullets.appendChild(makeBulletDOM(s.ringkasan_bab));
