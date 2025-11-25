@@ -394,25 +394,42 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
         final_summary = "\n\n".join(dedup)
 
         # TLDR
+        judul_bab = sec["judul"].lower()
+
+        if "bab i" in judul_bab or "bab 1" in judul_bab:
+            fokus = "latar belakang, rumusan masalah, tujuan, dan manfaat penelitian"
+        elif "bab ii" in judul_bab or "bab 2" in judul_bab:
+            fokus = "landasan teori dan konsep utama yang mendasari penelitian"
+        elif "bab iii" in judul_bab or "bab 3" in judul_bab:
+            fokus = "metode penelitian, prosedur penelitian, dan teknik analisis"
+        elif "bab iv" in judul_bab or "bab 4" in judul_bab:
+            fokus = "hasil penelitian utama serta pembahasannya"
+        elif "bab v" in judul_bab or "bab 5" in judul_bab:
+            fokus = "kesimpulan utama penelitian dan saran lanjutan"
+        else:
+            fokus = "inti utama bab"
+        
         tldr_prompt = (
-            "Buat satu kalimat TLDR yang sangat padat mengenai inti bab. "
+            f"Buat satu kalimat TLDR yang sangat ringkas dan hanya berisi {fokus}. "
             "Jangan mengulang kalimat dari ringkasan. "
-            "Jangan mulai dengan 'Bab ini'. "
+            "Jangan menggunakan frasa seperti 'Bab ini'. "
             "Langsung ke esensi ilmiah.\n\n"
-            f"TEKS RINGKASAN:\n{final_summary}\n\n"
+            f"RINGKASAN:\n{final_summary}\n\n"
             "TLDR:"
         )
 
         tldr_text = await asyncio.to_thread(_ollama_generate, tldr_prompt)
-        tldr_text = (tldr_text or "").strip()
+        tldr_text = (tldr_text or '').strip()
 
         return {
             "judul": sec["judul"],
             "ringkasan_bab": final_summary,
             "tldr": tldr_text
         }
-
-    return await asyncio.gather(*[asyncio.create_task(_process(sec)) for sec in sections])
+    
+    return await asyncio.gather(
+        *[asyncio.create_task(_process(sec)) for sec in sections]
+    )
 
 def detect_non_thesis(text: str) -> bool:
     if not text or len(text) < 1000: return True
@@ -536,5 +553,3 @@ async def post_comment(comment: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
-
-
