@@ -410,12 +410,15 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
             fokus = "inti utama bab"
         
         tldr_prompt = (
-            f"Buat satu kalimat TLDR yang sangat ringkas dan hanya berisi {fokus}. "
-            "Jangan mengulang kalimat dari ringkasan. "
-            "Jangan menggunakan frasa seperti 'Bab ini'. "
-            "Langsung ke esensi ilmiah.\n\n"
-            f"RINGKASAN:\n{final_summary}\n\n"
-            "TLDR:"
+            f"Buat satu kalimat TLDR yang sangat singkat dan berbeda total dari ringkasan berikut.\n"
+            f"Aturan:\n"
+            f"- Tidak boleh menyalin atau memodifikasi frasa dari ringkasan.\n"
+            f"- Tidak boleh menggunakan pola kalimat yang mirip.\n"
+            f"- Tidak boleh memakai frasa pembuka (mis. 'Bab ini', 'Penelitian ini').\n"
+            f"- Harus langsung menyatakan inti bab.\n"
+            f"- Harus relevan dengan fokus bab: {fokus}\n\n"
+            f"Ringkasan:\n{final_summary}\n\n"
+            f"TLDR:"
         )
 
         tldr_text = await asyncio.to_thread(_ollama_generate, tldr_prompt)
