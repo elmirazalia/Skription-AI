@@ -521,18 +521,41 @@ def detect_non_thesis(text: str) -> bool:
 async def summarize_pdf_per_bab(path: str):
     raw = read_pdf_text(path)
     if not raw.strip():
-        return {"file": os.path.basename(path), "sections": [], "note": "File kosong atau tidak dapat dibaca."}
+        return {
+            "file": os.path.basename(path),
+            "sections": [],
+            "note": "File kosong atau tidak dapat dibaca.",
+            "raw_text": "",
+            "bab_sections": []
+        }
 
-    raw = remove_duplicate_paragraphs(raw)
-    raw = clean_reference_noise(raw)
-    raw = remove_subbab(raw)
+    # bersihkan sama seperti sebelumnya
+    raw_clean = remove_duplicate_paragraphs(raw)
+    raw_clean = clean_reference_noise(raw_clean)
+    raw_clean = remove_subbab(raw_clean)
 
-    if detect_non_thesis(raw):
-        return {"file": os.path.basename(path), "sections": [], "note": "File ini tampaknya bukan skripsi atau tugas akhir."}
-    sections = split_by_bab(raw)
-    if not sections: sections = [{"judul": "BAB I", "isi": raw}]
-    results = await summarize_sections_parallel(sections)
-    return {"file": os.path.basename(path), "sections": results}
+    if detect_non_thesis(raw_clean):
+        return {
+            "file": os.path.basename(path),
+            "sections": [],
+            "note": "File ini tampaknya bukan skripsi atau tugas akhir.",
+            "raw_text": raw_clean,
+            "bab_sections": []
+        }
+
+    bab_sections = split_by_bab(raw_clean)
+    if not bab_sections:
+        bab_sections = [{"judul": "BAB I", "isi": raw_clean}]
+
+    results = await summarize_sections_parallel(bab_sections)
+
+    return {
+        "file": os.path.basename(path),
+        "sections": results,      # ringkasan per BAB
+        "raw_text": raw_clean,    # isi dokumen (sudah dibersihkan)
+        "bab_sections": bab_sections,  # teks per BAB mentah
+    }
+
 
 # EKSPOR DOCX & PDF
 from docx import Document
@@ -560,6 +583,86 @@ def export_all(data, out_docx, out_pdf):
         elements.append(Spacer(1, 12))
     pdf.build(elements)
 
+# =========================
+# KONTEN UNTUK QnA / CHAT
+# =========================
+
+def load_doc_context(file_path: Path):
+    """
+    Mengambil teks full + struktur BAB dari file pendamping.
+    Jika belum ada, akan dibuat dari PDF.
+    """
+    full_path = file_path.with_suffix(".full.txt")
+    bab_path = file_path.with_suffix(".bab.json")
+
+    raw_text = ""
+    bab_sections: List[Dict[str, str]] = []
+
+    if full_path.exists():
+        try:
+            raw_text = full_path.read_text(encoding="utf-8", errors="ignore")
+        except:
+            raw_text = ""
+
+    if bab_path.exists():
+        try:
+            with open(bab_path, "r", encoding="utf-8") as f:
+                bab_sections = json.load(f)
+        except:
+            bab_sections = []
+
+    # fallback: baca ulang dari PDF
+    if not raw_text or not bab_sections:
+        pdf_raw = read_pdf_text(str(file_path))
+        pdf_clean = remove_duplicate_paragraphs(pdf_raw)
+        pdf_clean = clean_reference_noise(pdf_clean)
+        pdf_clean = remove_subbab(pdf_clean)
+
+        raw_text = raw_text or pdf_clean
+        if not bab_sections:
+            bab_sections = split_by_bab(pdf_clean) or [{"judul": "BAB I", "isi": pdf_clean}]
+
+        # simpan lagi supaya next call lebih cepat
+        try:
+            full_path.write_text(raw_text, encoding="utf-8")
+            with open(bab_path, "w", encoding="utf-8") as f:
+                json.dump(bab_sections, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"{Fore.YELLOW}[WARN]{Style.RESET_ALL} Gagal menyimpan konteks (lazy): {e}")
+
+    return raw_text, bab_sections
+
+
+def pick_relevant_babs(question: str, bab_sections: List[Dict[str, str]], top_k: int = 3):
+    """
+    Pilih BAB yang paling relevan dengan pertanyaan
+    pakai overlap token sederhana (IR hemat biaya).
+    """
+    if not bab_sections:
+        return []
+
+    q_tokens = set(tokenize(question))
+    scored = []
+    for sec in bab_sections:
+        isi = sec.get("isi", "") or ""
+        judul = sec.get("judul", "") or ""
+        teks_tokens = set(tokenize(isi))
+        overlap = len(q_tokens & teks_tokens)
+        # bonus kalau kata pertanyaan muncul di judul
+        judul_low = judul.lower()
+        for t in q_tokens:
+            if t in judul_low:
+                overlap += 2
+        scored.append((overlap, sec))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    chosen = [sec for score, sec in scored[:top_k] if score > 0]
+
+    # kalau tidak ada yang match, ambil BAB pertama saja
+    if not chosen:
+        chosen = bab_sections[:1]
+    return chosen
+
 # FASTAPI APP
 app = FastAPI(title="DocuSum AI (Ollama)", version="9.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
@@ -579,6 +682,19 @@ async def upload_file(file: UploadFile = File(...)):
         hasil = await summarize_pdf_per_bab(str(file_path))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Gagal meringkas: {e}")
+            # simpan konteks untuk QnA / chat
+    raw_text = hasil.get("raw_text", "")
+    bab_sections = hasil.get("bab_sections", [])
+
+    try:
+        if raw_text:
+            with open(file_path.with_suffix(".full.txt"), "w", encoding="utf-8") as f:
+                f.write(raw_text)
+        if bab_sections:
+            with open(file_path.with_suffix(".bab.json"), "w", encoding="utf-8") as f:
+                json.dump(bab_sections, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"{Fore.YELLOW}[WARN]{Style.RESET_ALL} Gagal menyimpan konteks QnA: {e}")
     if hasil.get("note"):
         return {"success": False, "message": hasil["note"], "file": hasil["file"]}
     docx_path = str(file_path.with_suffix(".docx"))
@@ -629,52 +745,76 @@ async def post_comment(comment: Dict[str, str]):
 
 # prompt tanya
 @app.post("/api/ask")
-async def ask_about_file(data: Dict[str, str]):
+async def ask_about_file(data: Dict[str, Any]):
     """
-    Body JSON wajib:
+    Body JSON:
     {
-        "question": "...",
-        "file": "nama.pdf"  (opsional, jika ingin ambil ringkasan ulang)
+        "question": "...",          # WAJIB
+        "file": "nama.pdf",         # WAJIB
+        "history": [                # OPSIONAL, untuk mode chat
+            {"role": "user", "content": "..."},
+            {"role": "assistant", "content": "..."},
+            ...
+        ]
     }
     """
 
     question = (data.get("question") or "").strip()
-    file_name = data.get("file")
+    file_name = (data.get("file") or "").strip()
+    history = data.get("history") or []
 
     if not question:
         raise HTTPException(status_code=400, detail="Pertanyaan tidak boleh kosong.")
+    if not file_name:
+        raise HTTPException(status_code=400, detail="Nama file wajib diisi.")
 
-    # jika user menyebut file → gunakan ringkasan yang sudah dibuat
-    file_path = None
-    if file_name:
-        file_path = UPLOAD_DIR / file_name
-        if not file_path.exists():
-            raise HTTPException(status_code=404, detail="File tidak ditemukan.")
+    file_path = UPLOAD_DIR / file_name
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File tidak ditemukan.")
 
-        # ringkas ulang bila belum ada hasil (fallback cepat)
-        hasil = await summarize_pdf_per_bab(str(file_path))
-        konteks = "\n\n".join(
-            f"{sec['judul']}\n{sec['ringkasan_bab']}"
-            for sec in hasil["sections"]
-        )
+    # ambil konteks dokumen
+    raw_text, bab_sections = load_doc_context(file_path)
+
+    # pilih BAB yang paling relevan
+    relevant_babs = pick_relevant_babs(question, bab_sections, top_k=3)
+
+    # susun konteks untuk prompt
+    konteks_bab = []
+    for sec in relevant_babs:
+        judul = sec.get("judul", "BAB ?")
+        isi = (sec.get("isi") or "")[:6000]   # potong biar nggak kepanjangan
+        konteks_bab.append(f"{judul}\n{isi}")
+    konteks_bab_text = "\n\n".join(konteks_bab)
+
+    # riwayat chat (opsional)
+    history_text = ""
+    if history:
+        for msg in history[-8:]:   # ambil max 8 terakhir
+            role = msg.get("role", "user")
+            prefix = "User" if role == "user" else "AI"
+            content = (msg.get("content") or "").strip().replace("\n", " ")
+            history_text += f"{prefix}: {content}\n"
     else:
-        konteks = "Tidak ada file — hanya menjawab berdasarkan pertanyaan umum."
+        history_text = "(belum ada percakapan sebelumnya)\n"
 
     prompt = f"""
-Anda adalah asisten akademik.
-Baca seluruh isi file.
-Jawab pertanyaan berdasarkan isi file berikut:
+Anda adalah asisten akademik yang membantu menjawab pertanyaan tentang sebuah skripsi / tugas akhir.
 
-=== RINGKASAN DOKUMEN ===
-{konteks}
+Berikut ringkasan isi dokumen per BAB yang relevan:
 
-=== PERTANYAAN ===
+{konteks_bab_text}
+
+Riwayat percakapan sebelumnya:
+{history_text}
+
+Pertanyaan terbaru pengguna:
 {question}
 
-Buat jawaban:
-- Jelas dan ringkas
-- Ambil informasi dari dokumen (jika ada)
-- Bila tidak ditemukan jelaskan dengan sopan
+Instruksi:
+- Jawab berdasarkan informasi di dokumen di atas.
+- Jika informasi tidak ada / tidak jelas di dokumen, katakan dengan jujur
+  bahwa informasi tidak ditemukan, lalu beri saran bagian mana yang perlu dicek manual.
+- Jawab dalam bahasa Indonesia yang jelas dan runtut.
 
 Jawaban:
 """
@@ -682,12 +822,68 @@ Jawaban:
     jawaban = await asyncio.to_thread(_ollama_generate, prompt)
     jawaban = (jawaban or "").strip()
 
+    # info BAB sumber untuk UI
+    related_babs = [sec.get("judul", "BAB ?") for sec in relevant_babs]
+    source_snippets = [
+        {
+            "bab": sec.get("judul", "BAB ?"),
+            "preview": (sec.get("isi") or "").strip()[:260]
+        }
+        for sec in relevant_babs
+    ]
+
     return {
         "question": question,
-        "answer": jawaban
+        "answer": jawaban,
+        "related_babs": related_babs,
+        "sources": source_snippets,
+    }
+
+@app.post("/api/search")
+async def search_in_file(data: Dict[str, str]):
+    """
+    Body JSON:
+    {
+        "query": "kualitas pelayanan",
+        "file": "nama.pdf"
+    }
+    """
+    query = (data.get("query") or "").strip()
+    file_name = (data.get("file") or "").strip()
+
+    if not query:
+        raise HTTPException(status_code=400, detail="Kata kunci tidak boleh kosong.")
+    if not file_name:
+        raise HTTPException(status_code=400, detail="Nama file wajib diisi.")
+
+    file_path = UPLOAD_DIR / file_name
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File tidak ditemukan.")
+
+    _, bab_sections = load_doc_context(file_path)
+    q_low = query.lower()
+
+    hits = []
+    for sec in bab_sections:
+        judul = sec.get("judul", "BAB ?")
+        isi = sec.get("isi", "") or ""
+        for para in isi.split("\n"):
+            if q_low in para.lower():
+                snippet = para.strip()
+                if snippet:
+                    hits.append({
+                        "bab": judul,
+                        "snippet": snippet[:400]
+                    })
+
+    return {
+        "query": query,
+        "file": file_name,
+        "results": hits[:20]   # batasi 20 hasil
     }
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
 
