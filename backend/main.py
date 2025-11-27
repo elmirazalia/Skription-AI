@@ -363,56 +363,150 @@ def compress_for_prompt(text: str, max_chars: int = MAX_INPUT_CHARS) -> str:
 async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Dict[str, Any]]:
     semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
 
+    def extract_parts(output: str):
+        tldr = ""
+        ringk = ""
+
+        tldr_match = re.search(
+            r"TLDR:\s*(.*?)\s*RINGKASAN:",
+            output,
+            flags=re.DOTALL | re.IGNORECASE
+        )
+        if tldr_match:
+            tldr = tldr_match.group(1).strip()
+
+        ringk_match = re.search(
+            r"RINGKASAN:\s*(.*)",
+            output,
+            flags=re.DOTALL | re.IGNORECASE
+        )
+        if ringk_match:
+            ringk = ringk_match.group(1).strip()
+
+        return tldr, ringk
+
     async def _process(sec):
         teks = (sec.get("isi") or "").strip()
         if len(teks) < 80:
-            return {"judul": sec["judul"], "ringkasan_bab": ""}
+            return {"judul": sec["judul"], "ringkasan_bab": "", "tldr": ""}
 
-        # bersihkan repetisi, buang intro BAB
+        # BERSIHKAN TEKS
         paragraphs = [p.strip() for p in teks.split("\n") if len(p.strip()) > 40]
         isi_bersih = remove_bab_intro_paragraph("\n".join(paragraphs))
         isi_bersih = clean_reference_noise(isi_bersih)
 
-        # kompres jika > batas
         isi_kompres = compress_for_prompt(isi_bersih, MAX_INPUT_CHARS)
 
-        # panggil Ollama
-        summary = await ollama_summarize_async(isi_kompres, semaphore)
-        summary = summary.strip()
+        # RINGKASAN VIA OLLAMA
+        llm_output = await ollama_summarize_async(isi_kompres, semaphore)
+        llm_output = llm_output.strip()
 
-        # bersihkan output LLM dari repetisi dua paragraf sama
-        out_paras = [p.strip() for p in summary.split("\n") if p.strip()]
+        llm_tldr, llm_ringkas = extract_parts(llm_output)
+
+        # NORMALISASI RINGKASAN
+        out_paras = [p.strip() for p in llm_ringkas.split("\n") if p.strip()]
         dedup = []
         seen = set()
-
         for p in out_paras:
-            key = re.sub(r"\s+", " ", p.lower())[:90]  # normalisasi fingerprint
+            key = re.sub(r"\s+", " ", p.lower())[:90]
             if key not in seen:
                 seen.add(key)
                 dedup.append(p)
-    
         final_summary = "\n\n".join(dedup)
 
         # TLDR
-        tldr_prompt = (
-            "Buat satu kalimat TLDR yang sangat padat mengenai inti bab. "
-            "Jangan mengulang kalimat dari ringkasan. "
-            "Jangan mulai dengan 'Bab ini'. "
-            "Langsung ke esensi ilmiah.\n\n"
-            f"TEKS RINGKASAN:\n{final_summary}\n\n"
-            "TLDR:"
-        )
+        judul_bab = sec["judul"].lower()
 
-        tldr_text = await asyncio.to_thread(_ollama_generate, tldr_prompt)
-        tldr_text = (tldr_text or "").strip()
+        if "bab i" in judul_bab or "bab 1" in judul_bab:
+            tldr_prompt = f"""
+Buat TLDR BAB I dengan format berikut:
+
+Latar belakang: <isi satu kalimat>.
+Rumusan masalah: <isi satu kalimat>.
+Tujuan: <isi satu kalimat>.
+Manfaat: <isi satu kalimat>.
+
+Aturan:
+- Tidak menyalin kalimat dari ringkasan.
+- Hanya isi setelah titik dua.
+
+Ringkasan lengkap:
+{final_summary}
+
+Isi TLDR BAB I:
+"""
+        elif "bab ii" in judul_bab or "bab 2" in judul_bab:
+            tldr_prompt = f"""
+Buat TLDR BAB II dalam format:
+
+Teori utama: ...
+Konsep kunci: ...
+Penelitian terdahulu: ...
+
+Ringkasan lengkap:
+{final_summary}
+
+Isi TLDR BAB II:
+"""
+        elif "bab iii" in judul_bab or "bab 3" in judul_bab:
+            tldr_prompt = f"""
+Buat TLDR BAB III dalam format:
+
+Desain penelitian: ...
+Metode: ...
+Alat/bahan: ...
+Teknik analisis: ...
+
+Ringkasan lengkap:
+{final_summary}
+
+Isi TLDR BAB III:
+"""
+        elif "bab iv" in judul_bab or "bab 4" in judul_bab:
+            tldr_prompt = f"""
+Buat TLDR BAB IV dalam format:
+
+Hasil utama: ...
+Interpretasi: ...
+Pembahasan: ...
+
+Ringkasan lengkap:
+{final_summary}
+
+Isi TLDR BAB IV:
+"""
+        elif "bab v" in judul_bab or "bab 5" in judul_bab:
+            tldr_prompt = f"""
+Buat TLDR BAB V dalam format:
+
+Kesimpulan: ...
+Saran: ...
+
+Ringkasan lengkap:
+{final_summary}
+
+Isi TLDR BAB V:
+"""
+        else:
+            tldr_prompt = f"""
+Ringkas menjadi 3–4 poin inti:
+
+{final_summary}
+"""
+
+        # GENERATE TLDR FINAL
+        tldr_final = await asyncio.to_thread(_ollama_generate, tldr_prompt)
+        tldr_final = (tldr_final or "").strip()
 
         return {
             "judul": sec["judul"],
             "ringkasan_bab": final_summary,
-            "tldr": tldr_text
+            "tldr": tldr_final
         }
 
-    return await asyncio.gather(*[asyncio.create_task(_process(sec)) for sec in sections])
+    return await asyncio.gather(
+        *[asyncio.create_task(_process(sec)) for sec in sections]
+    )
 
 def detect_non_thesis(text: str) -> bool:
     if not text or len(text) < 1000: return True
