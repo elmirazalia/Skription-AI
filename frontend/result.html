@@ -130,10 +130,12 @@ function splitSentences(t) {
 
 function makeBulletDOM(t) {
   const ul = document.createElement("ul");
-  splitSentences(t).forEach(s => {
-    const li = document.createElement("li");
-    li.textContent = s;
-    ul.appendChild(li);
+  t.split(/\n+/).forEach(p => {     // Split berdasarkan paragraf, bukan titik
+    if(p.trim().length > 0){
+      const li = document.createElement("li");
+      li.textContent = p.trim();
+      ul.appendChild(li);
+    }
   });
   return ul;
 }
