@@ -71,6 +71,13 @@
       transform: rotate(90deg);
     }
 
+    .tldr {
+      font-size: 14px;
+      color: var(--primary);
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
     .bullet-text ul {
       margin-left: 22px;
       margin-top: 10px;
@@ -232,44 +239,11 @@
       <button id="expandAll" class="btn-small">Expand All</button>
       <button id="collapseAll" class="btn-small">Collapse All</button>
       <button id="toggleHighlight" class="btn-small">Highlight</button>
+      <button id="toggleTLDR" class="btn-small">TL;DR</button>
       <button id="copyAll" class="btn-small">Copy All</button>
     </div>
 
     <main id="resultsContainer"></main>
-
-    <!-- ===============================
-          COMMENT SECTION (exact lama)
-    ================================ -->
-    <div class="comment-section">
-
-      <div class="comment-input-container">
-        <span class="emoji" id="emoji-btn">😊</span>
-        <input type="text" id="commentInput" placeholder="Tulis komentar..." />
-      </div>
-
-      <!-- Emoji Picker -->
-      <div id="emoji-picker" class="emoji-picker">
-        <span>😀</span> <span>😁</span> <span>😂</span> <span>🤣</span> <span>😊</span>
-        <span>😇</span> <span>🙂</span> <span>🙃</span> <span>😉</span> <span>😍</span>
-        <span>🥰</span> <span>😘</span> <span>😜</span> <span>🤪</span> <span>🤓</span>
-        <span>😎</span> <span>🤩</span> <span>😡</span> <span>😭</span> <span>😱</span>
-        <span>👍</span> <span>👎</span> <span>🙏</span> <span>🎉</span> <span>❤️</span> <span>🔥</span>
-      </div>
-
-      <div class="comment-actions">
-        <button onclick="cancelComment()">Batal</button>
-        <button id="sendBtn" onclick="sendComment()">Kirim</button>
-      </div>
-
-      <div class="comments-display">
-        <div id="commentsWrapper"></div>
-        <div class="comments-nav">
-          <button id="prevBtn" class="nav-btn">←</button>
-          <button id="nextBtn" class="nav-btn">→</button>
-        </div>
-      </div>
-    </div>
-  </div>
 
 <script>
 // BASE API AUTO
@@ -301,6 +275,7 @@ function makeBulletDOM(t) {
 }
 
 // Render
+let SHOW_TLDR = true;
 let HIGHLIGHT = false;
 
 function downloadFile(url) {
@@ -386,11 +361,19 @@ function render() {
 
       const content = document.createElement("div");
       content.className = "sec-content";
+
+      const tldr = document.createElement("div");
+      tldr.className = "tldr";
+      tldr.style.display = SHOW_TLDR ? "block" : "none";
+      tldr.textContent = s.tldr && s.tldr.trim().length > 0
+      ? s.tldr
+      : "(TLDR tidak tersedia)";
       
       const bullets = document.createElement("div");
       bullets.className = "bullet-text";
       bullets.appendChild(makeBulletDOM(s.ringkasan_bab));
 
+      content.appendChild(tldr);
       content.appendChild(bullets);
 
       secHead.addEventListener("click", () => {
@@ -433,6 +416,13 @@ document.getElementById("toggleHighlight").onclick = () => {
   });
 };
 
+document.getElementById("toggleTLDR").onclick = () => {
+  SHOW_TLDR = !SHOW_TLDR;
+  document.querySelectorAll(".tldr").forEach(t => {
+    t.style.display = SHOW_TLDR ? "block" : "none";
+  });
+};
+
 document.getElementById("copyAll").onclick = async () => {
   const el = document.getElementById("resultsContainer");
   if (!el) {
@@ -458,89 +448,6 @@ document.getElementById("copyAll").onclick = async () => {
 
 render();
 
-// Komentar
-const input = document.getElementById("commentInput");
-const actions = document.querySelector(".comment-actions");
-const emojiBtn = document.getElementById("emoji-btn");
-const emojiPicker = document.getElementById("emoji-picker");
-const wrapper = document.getElementById("commentsWrapper");
-const prevBtn = document.getElementById("prevBtn");
-const nextBtn = document.getElementById("nextBtn");
-
-let comments = [];
-let index = 0;
-
-input.addEventListener("focus", () => actions.classList.add("show"));
-input.addEventListener("input", () => {
-  if (!input.value.trim()) actions.classList.remove("show");
-});
-
-emojiBtn.addEventListener("click", () => {
-  emojiPicker.style.display =
-    emojiPicker.style.display === "block" ? "none" : "block";
-});
-
-emojiPicker.addEventListener("click", e => {
-  if (e.target.tagName === "SPAN") {
-    input.value += e.target.textContent;
-    actions.classList.add("show");
-  }
-});
-
-function cancelComment() {
-  input.value = "";
-  actions.classList.remove("show");
-  emojiPicker.style.display = "none";
-}
-
-async function sendComment() {
-  const text = input.value.trim();
-  if (!text) return;
-
-  await fetch(`${BASE_API}/api/comments`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text })
-  });
-
-  input.value = "";
-  actions.classList.remove("show");
-  emojiPicker.style.display = "none";
-
-  loadComments();
-}
-
-async function loadComments() {
-  try {
-    const res = await fetch(`${BASE_API}/api/comments`);
-    comments = await res.json();
-    renderComment();
-  } catch {
-    wrapper.innerHTML = `<div class="comment-item" style="color:red;">Gagal memuat komentar.</div>`;
-  }
-}
-
-function renderComment() {
-  if (!comments.length) {
-    wrapper.innerHTML = `<div class="comment-item">Belum ada komentar.</div>`;
-    return;
-  }
-  wrapper.innerHTML = `<div class="comment-item">${escapeHTML(comments[index].text)}</div>`;
-}
-
-prevBtn.onclick = () => {
-  if (!comments.length) return;
-  index = (index - 1 + comments.length) % comments.length;
-  renderComment();
-};
-
-nextBtn.onclick = () => {
-  if (!comments.length) return;
-  index = (index + 1) % comments.length;
-  renderComment();
-};
-
-loadComments();
 </script>
 
 </body>
