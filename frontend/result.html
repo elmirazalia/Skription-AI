@@ -6,12 +6,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Hasil Ringkasan — Skription AI</title>
 
-  <!-- Font & Styles -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 
   <style>
-    /* ==== FITUR TAMBAHAN RINGKASAN (A) ==== */
     .top-controls {
       display: flex;
       gap: 10px;
@@ -21,7 +19,6 @@
       z-index: 10;
       position: relative;
     }
-
     .btn-small {
       background: white;
       border: 1px solid rgba(0, 0, 0, 0.15);
@@ -31,11 +28,9 @@
       font-size: 13px;
       transition: 0.2s;
     }
-
     .btn-small:hover {
       background: #f1f1f1;
     }
-
     .big-frame {
       background: white;
       border-radius: 12px;
@@ -44,16 +39,13 @@
       margin-top: 10px;
       line-height: 1.65;
     }
-
     .section {
       border-top: 1px dashed rgba(0, 0, 0, 0.1);
       padding: 15px 0;
     }
-
     .section:first-child {
       border-top: none;
     }
-
     .sec-head {
       display: flex;
       justify-content: space-between;
@@ -61,155 +53,38 @@
       gap: 16px;
       align-items: center;
     }
-
     .chev {
       display: inline-block;
       transition: transform 0.25s;
     }
-
     .chev.open {
       transform: rotate(90deg);
     }
-
+    .tldr {
+      font-size: 14px;
+      color: var(--primary);
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
     .bullet-text ul {
       margin-left: 22px;
       margin-top: 10px;
       margin-bottom: 15px;
       padding-left: 5px;
     }
-
     .bullet-text li {
       margin-bottom: 8px;
     }
-
     .highlight {
       background: #fff3cd;
       padding: 4px 6px;
       border-radius: 6px;
     }
-
-    /* ====== COMMENT BOX PERSIS VERSI LAMA ====== */
-    .comment-section {
-      backdrop-filter: blur(10px);
-      background: rgba(255, 255, 255, 0.45);
-      border-radius: 12px;
-      padding: 14px 14px;
-      max-width: 240px;
-      margin: 35px auto;
-      text-align: center;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-    }
-
-    .comment-input-container {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      border-bottom: 1px solid rgba(0, 0, 0, 0.2);
-      padding-bottom: 4px;
-    }
-
-    .emoji {
-      font-size: 20px;
-      cursor: pointer;
-      transition: 0.25s;
-    }
-
-    .emoji:hover {
-      transform: scale(1.2);
-    }
-
-    .comment-input-container input {
-      flex: 1;
-      border: none;
-      outline: none;
-      background: transparent;
-      font-size: 14px;
-      padding: 4px;
-    }
-
-    /* EMOJI PICKER */
-    .emoji-picker {
-      display: none;
-      margin-top: 8px;
-      background: white;
-      padding: 8px;
-      border-radius: 10px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-      font-size: 22px;
-      cursor: pointer;
-      user-select: none;
-    }
-
-    .emoji-picker span:hover {
-      transform: scale(1.2);
-    }
-
-    .comment-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 6px;
-      margin-top: 8px;
-      opacity: 0;
-      transition: 0.2s;
-    }
-
-    .comment-actions.show {
-      opacity: 1;
-    }
-
-    .comment-actions button {
-      border: none;
-      background: none;
-      padding: 4px 8px;
-      font-size: 13px;
-      cursor: pointer;
-      border-radius: 6px;
-    }
-
-    .comment-actions #sendBtn {
-      background: #007bff;
-      color: white;
-    }
-
-    /* COMMENT DISPLAY */
-    .comments-display {
-      margin-top: 14px;
-    }
-
-    .comment-item {
-      background: rgba(255, 255, 255, 0.7);
-      padding: 10px 12px;
-      border-radius: 8px;
-      margin-bottom: 8px;
-      font-size: 13px;
-      text-align: left;
-    }
-
-    .comments-nav {
-      display: flex;
-      justify-content: center;
-      gap: 20px;
-      margin-top: 8px;
-    }
-
-    .nav-btn {
-      border: none;
-      background: transparent;
-      cursor: pointer;
-      font-size: 18px;
-      color: var(--primary);
-      opacity: 0.65;
-    }
-
-    .nav-btn:hover {
-      opacity: 1;
-      scale: 1.1;
-    }
   </style>
 </head>
 
 <body>
-  <!-- Wave background lama -->
+
   <div class="wavy-bg">
     <div class="wave wave-1"></div>
     <div class="wave wave-2"></div>
@@ -217,7 +92,6 @@
   </div>
 
   <div class="container">
-
     <header class="header">
       <h1>📄 Hasil Ringkasan</h1>
       <p class="muted">Hasil ringkasan dokumen Anda:</p>
@@ -227,25 +101,23 @@
       <a href="index.html" class="btn-secondary">⬅️ Kembali ke Upload</a>
     </div>
 
-    <!-- Fitur A -->
     <div class="top-controls">
       <button id="expandAll" class="btn-small">Expand All</button>
       <button id="collapseAll" class="btn-small">Collapse All</button>
       <button id="toggleHighlight" class="btn-small">Highlight</button>
+      <button id="toggleTLDR" class="btn-small">TL;DR</button>
       <button id="copyAll" class="btn-small">Copy All</button>
     </div>
 
     <main id="resultsContainer"></main>
 
 <script>
-// BASE API AUTO
 const BASE_API = location.hostname.includes("localhost")
   ? "http://localhost:8000"
   : "https://docusum.onrender.com";
 
 const container = document.getElementById("resultsContainer");
 
-// Tools
 function escapeHTML(t = "") {
   return t.replace(/[&<>"']/g, m =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m])
@@ -266,7 +138,7 @@ function makeBulletDOM(t) {
   return ul;
 }
 
-// Render
+let SHOW_TLDR = true;
 let HIGHLIGHT = false;
 
 function downloadFile(url) {
@@ -281,7 +153,6 @@ function downloadFile(url) {
 
 function render() {
   const results = JSON.parse(sessionStorage.getItem("docuSumResults") || "[]");
-
   if (!results.length) {
     container.innerHTML = `<p style="text-align:center;color:#777;">Belum ada hasil.</p>`;
     return;
@@ -297,9 +168,7 @@ function render() {
       <div class="file-item">
         <div class="file-info">
           <div class="file-icon">📄</div>
-          <div class="file-details">
-            <h4>${escapeHTML(doc.file)}</h4>
-          </div>
+          <div class="file-details"><h4>${escapeHTML(doc.file)}</h4></div>
         </div>
         <div class="file-status">
           <span class="status-completed">✅ Selesai diproses</span>
@@ -317,7 +186,6 @@ function render() {
       b.onclick = () => downloadFile(doc.download_pdf);
       dl.appendChild(b);
     }
-
     if (doc.download_docx) {
       let b2 = document.createElement("button");
       b2.className = "btn-primary";
@@ -325,7 +193,6 @@ function render() {
       b2.onclick = () => downloadFile(doc.download_docx);
       dl.appendChild(b2);
     }
-
     card.appendChild(dl);
 
     const big = document.createElement("div");
@@ -352,24 +219,30 @@ function render() {
 
       const content = document.createElement("div");
       content.className = "sec-content";
-      
+
+      const tldr = document.createElement("div");
+      tldr.className = "tldr";
+      tldr.style.display = SHOW_TLDR ? "block" : "none";
+      tldr.textContent = s.tldr && s.tldr.trim().length > 0 
+          ? s.tldr 
+          : "(TLDR tidak tersedia)";
+
       const bullets = document.createElement("div");
       bullets.className = "bullet-text";
       bullets.appendChild(makeBulletDOM(s.ringkasan_bab));
 
+      content.appendChild(tldr);
       content.appendChild(bullets);
 
-      secHead.addEventListener("click", () => {
+      secHead.onclick = () => {
         const open = content.style.display !== "none";
         content.style.display = open ? "none" : "block";
         chev.classList.toggle("open", !open);
-      });
+      };
 
       section._content = content;
-
       section.appendChild(secHead);
       section.appendChild(content);
-
       big.appendChild(section);
     });
 
@@ -394,36 +267,27 @@ document.getElementById("collapseAll").onclick = () => {
 
 document.getElementById("toggleHighlight").onclick = () => {
   HIGHLIGHT = !HIGHLIGHT;
-  document.querySelectorAll("li").forEach(li => {
-    li.classList.toggle("highlight", HIGHLIGHT);
-  });
+  document.querySelectorAll("li").forEach(li => 
+    li.classList.toggle("highlight", HIGHLIGHT)
+  );
+};
+
+document.getElementById("toggleTLDR").onclick = () => {
+  SHOW_TLDR = !SHOW_TLDR;
+  document.querySelectorAll(".tldr").forEach(t =>
+    t.style.display = SHOW_TLDR ? "block" : "none"
+  );
 };
 
 document.getElementById("copyAll").onclick = async () => {
   const el = document.getElementById("resultsContainer");
-  if (!el) {
-    alert("Elemen hasil tidak ditemukan.");
-    return;
-  }
-
-  const txt = el.innerText.trim();
-  if (!txt) {
-    alert("Tidak ada hasil untuk disalin.");
-    return;
-  }
-
-  try {
-    await navigator.clipboard.writeText(txt);
-    alert("Berhasil disalin!");
-  } catch (err) {
-    console.error("Clipboard error:", err);
-    alert("Browser menolak akses clipboard atau perlu HTTPS.");
-  }
+  const txt = el.innerText?.trim();
+  if (!txt) return alert("Tidak ada yang bisa disalin.");
+  try { await navigator.clipboard.writeText(txt); alert("📋 Disalin!"); }
+  catch { alert("Clipboard gagal."); }
 };
 
-
 render();
-
 </script>
 
 </body>
