@@ -627,6 +627,67 @@ async def post_comment(comment: Dict[str, str]):
     save_comments(comments)
     return {"success": True, "comment": new_comment}
 
+# prompt tanya
+@app.post("/api/ask")
+async def ask_about_file(data: Dict[str, str]):
+    """
+    Body JSON wajib:
+    {
+        "question": "...",
+        "file": "nama.pdf"  (opsional, jika ingin ambil ringkasan ulang)
+    }
+    """
+
+    question = (data.get("question") or "").strip()
+    file_name = data.get("file")
+
+    if not question:
+        raise HTTPException(status_code=400, detail="Pertanyaan tidak boleh kosong.")
+
+    # jika user menyebut file → gunakan ringkasan yang sudah dibuat
+    file_path = None
+    if file_name:
+        file_path = UPLOAD_DIR / file_name
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail="File tidak ditemukan.")
+
+        # ringkas ulang bila belum ada hasil (fallback cepat)
+        hasil = await summarize_pdf_per_bab(str(file_path))
+        konteks = "\n\n".join(
+            f"{sec['judul']}\n{sec['ringkasan_bab']}"
+            for sec in hasil["sections"]
+        )
+    else:
+        konteks = "Tidak ada file — hanya menjawab berdasarkan pertanyaan umum."
+
+    prompt = f"""
+Anda adalah asisten akademik.
+Baca seluruh isi file.
+Jawab pertanyaan berdasarkan isi file berikut:
+
+=== RINGKASAN DOKUMEN ===
+{konteks}
+
+=== PERTANYAAN ===
+{question}
+
+Buat jawaban:
+- Jelas dan ringkas
+- Ambil informasi dari dokumen (jika ada)
+- Bila tidak ditemukan jelaskan dengan sopan
+
+Jawaban:
+"""
+
+    jawaban = await asyncio.to_thread(_ollama_generate, prompt)
+    jawaban = (jawaban or "").strip()
+
+    return {
+        "question": question,
+        "answer": jawaban
+    }
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
