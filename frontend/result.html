@@ -108,8 +108,11 @@
       <button id="toggleTLDR" class="btn-small">TL;DR</button>
       <button id="copyAll" class="btn-small">Copy All</button>
     </div>
+    
+    <main id="resultsContainer"></main>
+</div> 
 
-    <!-- =======================  QnA BOX  ======================= -->
+        <!-- =======================  QnA BOX  ======================= -->
   <div class="big-frame" style="margin-bottom:20px;">
   <h2>❓ Tanya Dokumen</h2>
   <p class="muted">Ajukan pertanyaan mengenai isi PDF yang telah diproses.</p>
@@ -123,9 +126,6 @@
   <div id="askResult" 
     style="margin-top:15px;white-space:pre-line;background:#fff;border-radius:10px;padding:15px;display:none;border:1px solid #e6e6e6;"></div>
 </div>
-
-
-    <main id="resultsContainer"></main>
 
 <script>
 const BASE_API = location.hostname.includes("localhost")
@@ -339,4 +339,5 @@ render();
 
 </body>
 </html>
+
 
