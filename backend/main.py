@@ -746,22 +746,8 @@ async def post_comment(comment: Dict[str, str]):
 # prompt tanya
 @app.post("/api/ask")
 async def ask_about_file(data: Dict[str, Any]):
-    """
-    Body JSON:
-    {
-        "question": "...",          # WAJIB
-        "file": "nama.pdf",         # WAJIB
-        "history": [                # OPSIONAL, untuk mode chat
-            {"role": "user", "content": "..."},
-            {"role": "assistant", "content": "..."},
-            ...
-        ]
-    }
-    """
-
     question = (data.get("question") or "").strip()
     file_name = (data.get("file") or "").strip()
-    history = data.get("history") or []
 
     if not question:
         raise HTTPException(status_code=400, detail="Pertanyaan tidak boleh kosong.")
@@ -772,49 +758,29 @@ async def ask_about_file(data: Dict[str, Any]):
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File tidak ditemukan.")
 
-    # ambil konteks dokumen
+    # ambil konteks penuh
     raw_text, bab_sections = load_doc_context(file_path)
 
-    # pilih BAB yang paling relevan
-    relevant_babs = pick_relevant_babs(question, bab_sections, top_k=3)
-
-    # susun konteks untuk prompt
-    konteks_bab = []
-    for sec in relevant_babs:
-        judul = sec.get("judul", "BAB ?")
-        isi = (sec.get("isi") or "")[:6000]   # potong biar nggak kepanjangan
-        konteks_bab.append(f"{judul}\n{isi}")
-    konteks_bab_text = "\n\n".join(konteks_bab)
-
-    # riwayat chat (opsional)
-    history_text = ""
-    if history:
-        for msg in history[-8:]:   # ambil max 8 terakhir
-            role = msg.get("role", "user")
-            prefix = "User" if role == "user" else "AI"
-            content = (msg.get("content") or "").strip().replace("\n", " ")
-            history_text += f"{prefix}: {content}\n"
-    else:
-        history_text = "(belum ada percakapan sebelumnya)\n"
+    # gabungkan seluruh dokumen untuk reasoning bebas seperti ChatGPT
+    full_context = "\n".join(
+        f"{sec['judul']}\n{sec['isi'][:5000]}"  # potong per bab agar efisien
+        for sec in bab_sections
+    )
 
     prompt = f"""
-Anda adalah asisten akademik yang membantu menjawab pertanyaan tentang sebuah skripsi / tugas akhir.
+Anda adalah AI akademik yang dapat menjawab pertanyaan bebas berdasarkan isi skripsi.
 
-Berikut ringkasan isi dokumen per BAB yang relevan:
+=== DOKUMEN SUMBER ===
+{full_context}
 
-{konteks_bab_text}
-
-Riwayat percakapan sebelumnya:
-{history_text}
-
-Pertanyaan terbaru pengguna:
+=== PERTANYAAN USER ===
 {question}
 
-Instruksi:
-- Jawab berdasarkan informasi di dokumen di atas.
-- Jika informasi tidak ada / tidak jelas di dokumen, katakan dengan jujur
-  bahwa informasi tidak ditemukan, lalu beri saran bagian mana yang perlu dicek manual.
-- Jawab dalam bahasa Indonesia yang jelas dan runtut.
+Instruksi jawaban:
+- Jawab padat, jelas, berbasis isi dokumen.
+- Jika jawaban berasal dari BAB tertentu, sebutkan BAB tersebut.
+- Jika dokumen tidak memuat jawaban, katakan tidak ditemukan.
+- Tulis jawaban seperti ChatGPT (natural dan mengalir), bukan bullet teknis kecuali diperlukan.
 
 Jawaban:
 """
@@ -822,21 +788,11 @@ Jawaban:
     jawaban = await asyncio.to_thread(_ollama_generate, prompt)
     jawaban = (jawaban or "").strip()
 
-    # info BAB sumber untuk UI
-    related_babs = [sec.get("judul", "BAB ?") for sec in relevant_babs]
-    source_snippets = [
-        {
-            "bab": sec.get("judul", "BAB ?"),
-            "preview": (sec.get("isi") or "").strip()[:260]
-        }
-        for sec in relevant_babs
-    ]
-
     return {
         "question": question,
         "answer": jawaban,
-        "related_babs": related_babs,
-        "sources": source_snippets,
+        "mode": "Free reasoning ✔",
+        "source": "Full document used"
     }
 
 @app.post("/api/search")
@@ -885,5 +841,6 @@ async def search_in_file(data: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
 
 
