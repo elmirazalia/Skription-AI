@@ -583,10 +583,7 @@ def export_all(data, out_docx, out_pdf):
         elements.append(Spacer(1, 12))
     pdf.build(elements)
 
-# =========================
-# KONTEN UNTUK QnA / CHAT
-# =========================
-
+# qna
 def load_doc_context(file_path: Path):
     """
     Mengambil teks full + struktur BAB dari file pendamping.
@@ -761,9 +758,8 @@ async def ask_about_file(data: Dict[str, Any]):
     # ambil konteks penuh
     raw_text, bab_sections = load_doc_context(file_path)
 
-    # gabungkan seluruh dokumen untuk reasoning bebas seperti ChatGPT
     full_context = "\n".join(
-        f"{sec['judul']}\n{sec['isi'][:5000]}"  # potong per bab agar efisien
+        f"{sec['judul']}\n{sec['isi']}" 
         for sec in bab_sections
     )
 
@@ -841,6 +837,3 @@ async def search_in_file(data: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
-
-
-
