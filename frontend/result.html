@@ -71,13 +71,6 @@
       transform: rotate(90deg);
     }
 
-    .tldr {
-      font-size: 14px;
-      color: var(--primary);
-      font-weight: 600;
-      margin-bottom: 10px;
-    }
-
     .bullet-text ul {
       margin-left: 22px;
       margin-top: 10px;
@@ -239,7 +232,6 @@
       <button id="expandAll" class="btn-small">Expand All</button>
       <button id="collapseAll" class="btn-small">Collapse All</button>
       <button id="toggleHighlight" class="btn-small">Highlight</button>
-      <button id="toggleTLDR" class="btn-small">TL;DR</button>
       <button id="copyAll" class="btn-small">Copy All</button>
     </div>
 
@@ -275,7 +267,6 @@ function makeBulletDOM(t) {
 }
 
 // Render
-let SHOW_TLDR = true;
 let HIGHLIGHT = false;
 
 function downloadFile(url) {
@@ -361,19 +352,11 @@ function render() {
 
       const content = document.createElement("div");
       content.className = "sec-content";
-
-      const tldr = document.createElement("div");
-      tldr.className = "tldr";
-      tldr.style.display = SHOW_TLDR ? "block" : "none";
-      tldr.textContent = s.tldr && s.tldr.trim().length > 0
-      ? s.tldr
-      : "(TLDR tidak tersedia)";
       
       const bullets = document.createElement("div");
       bullets.className = "bullet-text";
       bullets.appendChild(makeBulletDOM(s.ringkasan_bab));
 
-      content.appendChild(tldr);
       content.appendChild(bullets);
 
       secHead.addEventListener("click", () => {
@@ -413,13 +396,6 @@ document.getElementById("toggleHighlight").onclick = () => {
   HIGHLIGHT = !HIGHLIGHT;
   document.querySelectorAll("li").forEach(li => {
     li.classList.toggle("highlight", HIGHLIGHT);
-  });
-};
-
-document.getElementById("toggleTLDR").onclick = () => {
-  SHOW_TLDR = !SHOW_TLDR;
-  document.querySelectorAll(".tldr").forEach(t => {
-    t.style.display = SHOW_TLDR ? "block" : "none";
   });
 };
 
