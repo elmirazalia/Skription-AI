@@ -109,6 +109,22 @@
       <button id="copyAll" class="btn-small">Copy All</button>
     </div>
 
+    <!-- =======================  QnA BOX  ======================= -->
+  <div class="big-frame" style="margin-bottom:20px;">
+  <h2>❓ Tanya Dokumen</h2>
+  <p class="muted">Ajukan pertanyaan mengenai isi PDF yang telah diproses.</p>
+
+  <textarea id="askInput" 
+    placeholder="Contoh: Apa tujuan penelitian pada skripsi ini?" 
+    style="width:100%;height:70px;margin-top:8px;padding:10px;border-radius:8px;border:1px solid #ccc;font-size:14px;"></textarea>
+
+  <button id="askBtn" class="btn-primary" style="margin-top:10px;">🔍 Tanyakan ke AI</button>
+
+  <div id="askResult" 
+    style="margin-top:15px;white-space:pre-line;background:#fff;border-radius:10px;padding:15px;display:none;border:1px solid #e6e6e6;"></div>
+</div>
+
+
     <main id="resultsContainer"></main>
 
 <script>
@@ -289,8 +305,38 @@ document.getElementById("copyAll").onclick = async () => {
   catch { alert("Clipboard gagal."); }
 };
 
+/* ============================  QnA ASK SYSTEM  ============================ */
+
+document.getElementById("askBtn").onclick = async () => {
+  const q = document.getElementById("askInput").value.trim();
+  if (!q) return alert("❗ Pertanyaan tidak boleh kosong.");
+
+  const results = JSON.parse(sessionStorage.getItem("docuSumResults") || "[]");
+  if (!results.length) return alert("❗ Tidak ada dokumen yang diproses.");
+
+  const fileName = results[0].file; // pakai file terakhir diproses
+
+  const box = document.getElementById("askResult");
+  box.style.display = "block";
+  box.textContent = "⏳ Sedang memproses pertanyaan...";
+
+  try {
+    const res = await fetch(`${BASE_API}/api/ask`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question: q, file: fileName })
+    });
+
+    const data = await res.json();
+    box.textContent = data.answer || "⚠ Tidak ditemukan jawaban pada dokumen.";
+  } 
+  catch(e){
+    box.textContent = "❌ Terjadi kesalahan saat memproses pertanyaan.";
+  }
+};
 render();
 </script>
 
 </body>
 </html>
+
