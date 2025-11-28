@@ -708,38 +708,6 @@ async def download_file(filename: str):
         raise HTTPException(status_code=404, detail="File tidak ditemukan")
     return FileResponse(file_path, filename=filename)
 
-# KOMENTAR GLOBAL
-COMMENTS_FILE = Path("comments.json")
-
-def load_comments() -> list:
-    if COMMENTS_FILE.exists():
-        try:
-            with open(COMMENTS_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except json.JSONDecodeError:
-            return []
-    return []
-
-def save_comments(comments: list):
-    with open(COMMENTS_FILE, "w", encoding="utf-8") as f:
-        json.dump(comments, f, ensure_ascii=False, indent=2)
-
-@app.get("/api/comments")
-async def get_comments():
-    return load_comments()
-
-@app.post("/api/comments")
-async def post_comment(comment: Dict[str, str]):
-    name = (comment.get("name") or "").strip()
-    text = (comment.get("text") or "").strip()
-    if not text:
-        raise HTTPException(status_code=400, detail="Komentar tidak boleh kosong.")
-    new_comment = {"name": name or "Anonim", "text": text, "time": datetime.utcnow().isoformat() + "Z"}
-    comments = load_comments()
-    comments.append(new_comment)
-    save_comments(comments)
-    return {"success": True, "comment": new_comment}
-
 # prompt tanya
 @app.post("/api/ask")
 async def ask_about_file(data: Dict[str, Any]):
@@ -755,41 +723,52 @@ async def ask_about_file(data: Dict[str, Any]):
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File tidak ditemukan.")
 
-    # ambil konteks penuh
     raw_text, bab_sections = load_doc_context(file_path)
+    if not bab_sections:
+        return {"answer": "Dokumen tidak terbaca atau tidak memiliki struktur BAB."}
 
-    full_context = "\n".join(
-        f"{sec['judul']}\n{sec['isi']}" 
-        for sec in bab_sections
-    )
+    # cari bab
+    q_tokens = set(tokenize(question))
+    scored = []
+    for sec in bab_sections:
+        teks = sec["isi"].lower()
+        score = sum(1 for t in q_tokens if t in teks)   # overlap token sederhana
+        scored.append((score, sec))
 
+    scored.sort(reverse=True, key=lambda x: x[0])
+    chosen = [sec for score, sec in scored[:2]]   # ambil max dua BAB yg paling dekat
+
+    # cari paragraf
+    konteks = []
+    for sec in chosen:
+        paras = [p for p in sec["isi"].split("\n") if len(p) > 40]
+        best = [p for p in paras if any(t in p.lower() for t in q_tokens)]
+        if len(best) == 0:   # fallback kalau tak ketemu
+            best = paras[:3]
+        
+        konteks.append(sec["judul"] + ":\n" + "\n".join(best[:5]))
+
+    final_context = "\n\n----------------\n\n".join(konteks)
+
+    # sent model
     prompt = f"""
-Anda adalah AI akademik yang dapat menjawab pertanyaan bebas berdasarkan isi skripsi.
+Jawab berdasarkan isi skripsi berikut:
 
-=== DOKUMEN SUMBER ===
-{full_context}
+{final_context}
 
-=== PERTANYAAN USER ===
+Pertanyaan pengguna:
 {question}
 
-Instruksi jawaban:
-- Jawab padat, jelas, berbasis isi dokumen.
-- Jika jawaban berasal dari BAB tertentu, sebutkan BAB tersebut.
-- Jika dokumen tidak memuat jawaban, katakan tidak ditemukan.
-- Tulis jawaban seperti ChatGPT (natural dan mengalir), bukan bullet teknis kecuali diperlukan.
+Tugas jawab:
+- Hanya jawab berdasarkan teks di atas.
+- Jika tampak berasal dari BAB tertentu, sebutkan nama BAB nya.
+- Jika informasi tidak ditemukan, balas "informasi tidak ditemukan pada dokumen."
 
-Jawaban:
+Jawaban ringkas, jelas, langsung ke inti:
 """
 
     jawaban = await asyncio.to_thread(_ollama_generate, prompt)
-    jawaban = (jawaban or "").strip()
-
-    return {
-        "question": question,
-        "answer": jawaban,
-        "mode": "Free reasoning ✔",
-        "source": "Full document used"
-    }
+    return {"answer": jawaban}
 
 @app.post("/api/search")
 async def search_in_file(data: Dict[str, str]):
