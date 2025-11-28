@@ -723,52 +723,55 @@ async def ask_about_file(data: Dict[str, Any]):
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File tidak ditemukan.")
 
+    # LOAD DOKUMEN
     raw_text, bab_sections = load_doc_context(file_path)
     if not bab_sections:
         return {"answer": "Dokumen tidak terbaca atau tidak memiliki struktur BAB."}
 
-    # cari bab
-    q_tokens = set(tokenize(question))
-    scored = []
-    for sec in bab_sections:
-        teks = sec["isi"].lower()
-        score = sum(1 for t in q_tokens if t in teks)   # overlap token sederhana
-        scored.append((score, sec))
+    # === ringkasan global untuk pemahaman umum ===
+    global_path = file_path.with_suffix(".global.txt")
+    if global_path.exists():
+        global_summary = global_path.read_text(encoding="utf-8")
+    else:
+        global_summary = summarize_text_extractive(raw_text, max_sent=25)
+        global_path.write_text(global_summary, encoding="utf-8")
 
-    scored.sort(reverse=True, key=lambda x: x[0])
-    chosen = [sec for score, sec in scored[:2]]   # ambil max dua BAB yg paling dekat
+    # === pilih bab yang paling relevan ===
+    chosen_babs = pick_relevant_babs(question, bab_sections, top_k=3)
 
-    # cari paragraf
-    konteks = []
-    for sec in chosen:
-        paras = [p for p in sec["isi"].split("\n") if len(p) > 40]
-        best = [p for p in paras if any(t in p.lower() for t in q_tokens)]
-        if len(best) == 0:   # fallback kalau tak ketemu
-            best = paras[:3]
-        
-        konteks.append(sec["judul"] + ":\n" + "\n".join(best[:5]))
+    # === buat konteks RAG lengkap ===
+    context = "\n=== RINGKASAN UTAMA DOKUMEN ===\n" + global_summary + "\n"
 
-    final_context = "\n\n----------------\n\n".join(konteks)
+    for sec in chosen_babs:
+        context += f"\n=== {sec['judul']} (Rangkuman) ===\n"
+        context += summarize_text_extractive(sec["isi"], max_sent=12)
 
-    # sent model
+        # tambahkan paragraf asli bila mengandung kata kunci
+        for para in sec["isi"].split("\n"):
+            if any(tok in para.lower() for tok in tokenize(question)):
+                context += "\n\n-- Kutipan Asli Dokumen --\n" + para[:800] + "...\n"
+                break
+
+    # PROMPT TO LLM
     prompt = f"""
-Jawab berdasarkan isi skripsi berikut:
+Jawab pertanyaan berdasarkan konteks berikut:
 
-{final_context}
+{context}
 
-Pertanyaan pengguna:
+Pertanyaan:
 {question}
 
-Tugas jawab:
-- Hanya jawab berdasarkan teks di atas.
-- Jika tampak berasal dari BAB tertentu, sebutkan nama BAB nya.
-- Jika informasi tidak ditemukan, balas "informasi tidak ditemukan pada dokumen."
+Instruksi:
+- Jawaban harus berdasarkan teks di atas.
+- Jika berasal dari BAB tertentu, sebutkan BAB nya.
+- Jika tidak ditemukan pada dokumen, jawab "tidak ditemukan pada dokumen".
+- Gunakan bahasa jelas, langsung inti.
 
-Jawaban ringkas, jelas, langsung ke inti:
+Jawaban:
 """
 
-    jawaban = await asyncio.to_thread(_ollama_generate, prompt)
-    return {"answer": jawaban}
+    answer = await asyncio.to_thread(_ollama_generate, prompt)
+    return {"answer": answer.strip()}
 
 @app.post("/api/search")
 async def search_in_file(data: Dict[str, str]):
@@ -816,3 +819,4 @@ async def search_in_file(data: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
