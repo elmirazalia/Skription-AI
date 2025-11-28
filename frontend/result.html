@@ -129,9 +129,8 @@
 </div>
 
 <script>
-const BASE_API = location.hostname.includes("localhost")
-  ? "http://localhost:8000"
-  : "https://docusum.onrender.com";
+const isLocal = location.hostname === "localhost" || location.hostname === "127.0.0.1" || location.protocol === "file:";
+const BASE_API = isLocal ? "http://localhost:8000" : "https://docusum.onrender.com";
 
 const container = document.getElementById("resultsContainer");
 
@@ -343,7 +342,3 @@ render();
 
 </body>
 </html>
-
-
-
-
