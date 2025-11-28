@@ -723,55 +723,47 @@ async def ask_about_file(data: Dict[str, Any]):
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File tidak ditemukan.")
 
-    # LOAD DOKUMEN
+    # ambil konteks penuh (hasil ekstraksi PDF yg sudah dibersihkan)
     raw_text, bab_sections = load_doc_context(file_path)
-    if not bab_sections:
-        return {"answer": "Dokumen tidak terbaca atau tidak memiliki struktur BAB."}
 
-    # === ringkasan global untuk pemahaman umum ===
-    global_path = file_path.with_suffix(".global.txt")
-    if global_path.exists():
-        global_summary = global_path.read_text(encoding="utf-8")
+    if not raw_text.strip():
+        return {"answer": "Dokumen tidak terbaca atau kosong."}
+
+    # Biar lebih aman kalau skripsinya super panjang banget,
+    # kita kasih batas karakter (boleh dinaikkan kalau mesin kuat)
+    MAX_QA_CHARS = 120_000
+    if len(raw_text) > MAX_QA_CHARS:
+        context_for_llm = raw_text[:MAX_QA_CHARS]
     else:
-        global_summary = summarize_text_extractive(raw_text, max_sent=25)
-        global_path.write_text(global_summary, encoding="utf-8")
+        context_for_llm = raw_text
 
-    # === pilih bab yang paling relevan ===
-    chosen_babs = pick_relevant_babs(question, bab_sections, top_k=3)
-
-    # === buat konteks RAG lengkap ===
-    context = "\n=== RINGKASAN UTAMA DOKUMEN ===\n" + global_summary + "\n"
-
-    for sec in chosen_babs:
-        context += f"\n=== {sec['judul']} (Rangkuman) ===\n"
-        context += summarize_text_extractive(sec["isi"], max_sent=12)
-
-        # tambahkan paragraf asli bila mengandung kata kunci
-        for para in sec["isi"].split("\n"):
-            if any(tok in para.lower() for tok in tokenize(question)):
-                context += "\n\n-- Kutipan Asli Dokumen --\n" + para[:800] + "...\n"
-                break
-
-    # PROMPT TO LLM
     prompt = f"""
-Jawab pertanyaan berdasarkan konteks berikut:
+Anda adalah AI akademik yang menjawab pertanyaan berdasarkan isi skripsi di bawah ini.
 
-{context}
+=== DOKUMEN SUMBER (TEKS PENUH) ===
+{context_for_llm}
 
-Pertanyaan:
+=== PERTANYAAN PENGGUNA ===
 {question}
 
-Instruksi:
-- Jawaban harus berdasarkan teks di atas.
-- Jika berasal dari BAB tertentu, sebutkan BAB nya.
-- Jika tidak ditemukan pada dokumen, jawab "tidak ditemukan pada dokumen".
-- Gunakan bahasa jelas, langsung inti.
+Instruksi jawaban:
+- Jawab hanya berdasarkan dokumen sumber di atas.
+- Jika tampak berasal dari BAB tertentu, sebutkan BAB tersebut di jawaban.
+- Jika informasi tidak ditemukan di dokumen, jawab dengan jujur bahwa informasi tidak ada.
+- Jawab dengan bahasa Indonesia yang natural, jelas, dan padat (seperti ChatGPT).
 
 Jawaban:
 """
 
-    answer = await asyncio.to_thread(_ollama_generate, prompt)
-    return {"answer": answer.strip()}
+    jawaban = await asyncio.to_thread(_ollama_generate, prompt)
+    jawaban = (jawaban or "").strip()
+
+    if not jawaban:
+        jawaban = "Maaf, saya tidak bisa menemukan jawaban berdasarkan dokumen yang tersedia."
+
+    return {
+        "answer": jawaban
+    }
 
 @app.post("/api/search")
 async def search_in_file(data: Dict[str, str]):
@@ -819,4 +811,5 @@ async def search_in_file(data: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
 
