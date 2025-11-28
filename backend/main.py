@@ -699,8 +699,12 @@ async def upload_file(file: UploadFile = File(...)):
     export_all(hasil, docx_path, pdf_path)
     hasil["download_docx"] = f"{BASE_URL}/api/download/{Path(docx_path).name}"
     hasil["download_pdf"] = f"{BASE_URL}/api/download/{Path(pdf_path).name}"
-    return {"success": True, "data": hasil}
-
+    return {
+        "success": True,
+        "file": file.filename,  # ⬅ ini penting!
+        "data": hasil
+    }
+    
 @app.get("/api/download/{filename}")
 async def download_file(filename: str):
     file_path = UPLOAD_DIR / filename
@@ -811,5 +815,3 @@ async def search_in_file(data: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
-
-
