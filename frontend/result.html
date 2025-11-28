@@ -317,7 +317,7 @@ document.getElementById("askBtn").onclick = async () => {
   const results = JSON.parse(sessionStorage.getItem("docuSumResults") || "[]");
   if (!results.length) return alert("❗ Tidak ada dokumen yang diproses.");
 
-  const fileName = results[0].file; // pakai file terakhir diproses
+  const fileName = results[0]?.file;
 
   const box = document.getElementById("askResult");
   box.style.display = "block";
@@ -342,3 +342,4 @@ render();
 
 </body>
 </html>
+
