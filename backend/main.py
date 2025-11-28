@@ -735,7 +735,7 @@ async def ask_about_file(data: Dict[str, Any]):
 
     # Biar lebih aman kalau skripsinya super panjang banget,
     # kita kasih batas karakter (boleh dinaikkan kalau mesin kuat)
-    MAX_QA_CHARS = 120_000
+    MAX_QA_CHARS = 500_000
     if len(raw_text) > MAX_QA_CHARS:
         context_for_llm = raw_text[:MAX_QA_CHARS]
     else:
@@ -815,3 +815,4 @@ async def search_in_file(data: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
