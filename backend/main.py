@@ -727,25 +727,38 @@ async def ask_about_file(data: Dict[str, Any]):
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File tidak ditemukan.")
 
-    # ambil konteks penuh (hasil ekstraksi PDF yg sudah dibersihkan)
+    # load konteks penyimpanan (bab.json + full.txt)
     raw_text, bab_sections = load_doc_context(file_path)
 
     if not raw_text.strip():
         return {"answer": "Dokumen tidak terbaca atau kosong."}
 
-    # Biar lebih aman kalau skripsinya super panjang banget,
-    # kita kasih batas karakter (boleh dinaikkan kalau mesin kuat)
-    MAX_QA_CHARS = 500_000
-    if len(raw_text) > MAX_QA_CHARS:
-        context_for_llm = raw_text[:MAX_QA_CHARS]
-    else:
-        context_for_llm = raw_text
+    MAX_QA_CHARS = 400_000
 
+    if bab_sections:
+        relevant = pick_relevant_babs(question, bab_sections, top_k=3)
+
+        parts = []
+        per_sec_limit = MAX_QA_CHARS // max(len(relevant), 1)
+
+        for sec in relevant:
+            isi = sec.get("isi", "")
+            if len(isi) > per_sec_limit:
+                isi = isi[:per_sec_limit]
+            parts.append(f"{sec['judul']}\n{isi}")
+
+        context = "\n\n".join(parts)
+    else:
+        context = raw_text[:MAX_QA_CHARS]
+
+    if not context:
+        context = raw_text[:MAX_QA_CHARS]
+    
     prompt = f"""
 Anda adalah AI akademik yang menjawab pertanyaan berdasarkan isi skripsi di bawah ini.
 
 === DOKUMEN SUMBER (TEKS PENUH) ===
-{context_for_llm}
+{context}
 
 === PERTANYAAN PENGGUNA ===
 {question}
@@ -758,16 +771,9 @@ Instruksi jawaban:
 
 Jawaban:
 """
+    jawaban = (await asyncio.to_thread(_ollama_generate, prompt)) or ""
 
-    jawaban = await asyncio.to_thread(_ollama_generate, prompt)
-    jawaban = (jawaban or "").strip()
-
-    if not jawaban:
-        jawaban = "Maaf, saya tidak bisa menemukan jawaban berdasarkan dokumen yang tersedia."
-
-    return {
-        "answer": jawaban
-    }
+    return {"answer": jawaban.strip()}
 
 @app.post("/api/search")
 async def search_in_file(data: Dict[str, str]):
@@ -815,4 +821,3 @@ async def search_in_file(data: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
-
