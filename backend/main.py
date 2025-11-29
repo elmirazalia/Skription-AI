@@ -543,13 +543,7 @@ async def summarize_pdf_per_bab(path: str):
 
     # warning non bab
     if not re.search(r"\bBAB\s+[IVXLCDM0-9]+\b", raw_clean, flags=re.IGNORECASE):
-        return {
-            "file": os.path.basename(path),
-            "sections": [],
-            "note": "Dokumen tidak memiliki struktur BAB, tetapi tetap bisa ditanyakan melalui Q&A.",
-            "raw_text": raw_clean,
-            "bab_sections": []
-        }   # << perhatikan indent sudah benar
+    hasil_note = "⚠ Dokumen tidak sepenuhnya berformat skripsi, tetapi tetap diproses."
 
     # non skripsi
     # if detect_non_thesis(raw_clean):
@@ -841,3 +835,4 @@ async def search_in_file(data: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
