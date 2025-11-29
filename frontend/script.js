@@ -150,12 +150,23 @@ class FileUploader {
         this.processBtn.textContent = '⏳ Memproses...';
         this.processedResults = [];
 
+        let warning = null;
+
         for (const fileItem of this.uploadedFiles) {
             const result = await this.sendToBackend(fileItem.file);
+
+            // simpan hasil, tapi cek apakah warning
+            if (result && result.note) warning = result.note;
+
             if (result) this.processedResults.push(result);
         }
-
+        
+        // simpan hasil
         sessionStorage.setItem('docuSumResults', JSON.stringify(this.processedResults));
+
+        if (warning) sessionStorage.setItem("docuSumWarning", warning);
+        else sessionStorage.removeItem("docuSumWarning");
+
         window.location.href = "result.html";
     }
 
@@ -221,5 +232,3 @@ function convertToBullets(text) {
 }
 
 window.convertSectionsToBullets = convertToBullets;
-
-
