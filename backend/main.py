@@ -174,10 +174,8 @@ def split_by_bab(text: str):
         text = m.group(1)
 
     # Pecah berdasarkan BAB (angka Romawi atau Arab)
-    parts = re.split(r"(?=BAB\s+[IVXLCDM]+\b)", text, flags=re.IGNORECASE)
-    if len(parts) <= 1:
-        parts = re.split(r"(?=BAB\s+\d+\b)", text, flags=re.IGNORECASE)
-
+    parts = re.split(r"(?=BAB\s+(?:[IVXLCDM]+|\d+)(?:\s+[A-Z][^\n]+)?)", text, flags=re.IGNORECASE)
+    
     candidates = []
     for idx, p in enumerate(parts):
         p = p.strip()
