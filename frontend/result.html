@@ -236,18 +236,13 @@ function render() {
 
   // jika tidak deteksi bab
   if (!doc.sections || doc.sections.length === 0) {
-    big.innerHTML = `
-      <p style="
-        font-size:15px;
-        color:#555;
-        margin:5px 0 15px;">
-        ⚠ Dokumen ini berhasil diproses, tetapi tidak ditemukan struktur BAB seperti skripsi.
-      </p>
-      <p style="font-size:14px;color:#777;">
-        Anda masih dapat menggunakan fitur <b>Tanya Dokumen</b> di bawah untuk menanyakan isi dokumen.
-      </p>
-    `;
-  }
+      big.innerHTML = `
+        <div class="warning-box">
+            ⚠ <b>Dokumen ini berhasil diproses, tetapi *tidak ditemukan struktur BAB seperti skripsi*.</b><br>
+            Anda masih dapat menggunakan fitur <b>Tanya Dokumen</b> di bawah untuk menanyakan isi dokumen.
+        </div>
+      `;
+    }
     
     (doc.sections || []).forEach(s => {
       if (!s.ringkasan_bab?.trim()) return;
@@ -382,3 +377,4 @@ render();
 
 </body>
 </html>
+
