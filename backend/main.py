@@ -518,11 +518,6 @@ Ringkas menjadi 3–4 poin inti:
         *[asyncio.create_task(_process(sec)) for sec in sections]
     )
 
-if re.search(r"\bBAB\s+[IVXLCDM0-9]+\b", raw_clean, flags=re.IGNORECASE):
-    pass
-else:
-    return { "note": "Dokumen tidak memiliki struktur BAB" }
-
 def detect_non_thesis(text: str) -> bool:
     if not text or len(text) < 1000: return True
     t = text.lower()
@@ -544,19 +539,29 @@ async def summarize_pdf_per_bab(path: str):
             "bab_sections": []
         }
 
-    # bersihkan sama seperti sebelumnya
     raw_clean = remove_duplicate_paragraphs(raw)
     raw_clean = clean_reference_noise(raw_clean)
     raw_clean = remove_subbab(raw_clean)
 
-   # if detect_non_thesis(raw_clean):
-    #    return {
-     #       "file": os.path.basename(path),
-      #      "sections": [],
-       #     "note": "File ini tampaknya bukan skripsi atau tugas akhir.",
-        #    "raw_text": raw_clean,
-         #   "bab_sections": []
-        #}
+    # warning non bab
+    if not re.search(r"\bBAB\s+[IVXLCDM0-9]+\b", raw_clean, flags=re.IGNORECASE):
+        return {
+            "file": os.path.basename(path),
+            "sections": [],
+            "note": "Dokumen tidak memiliki struktur BAB, tetapi tetap bisa ditanyakan melalui Q&A.",
+            "raw_text": raw_clean,
+            "bab_sections": []
+        }   # << perhatikan indent sudah benar
+
+    # non skripsi
+    # if detect_non_thesis(raw_clean):
+    #     return {
+    #         "file": os.path.basename(path),
+    #         "sections": [],
+    #         "note": "File ini tampaknya bukan skripsi atau tugas akhir.",
+    #         "raw_text": raw_clean,
+    #         "bab_sections": []
+    #     }
 
     bab_sections = split_by_bab(raw_clean)
     if not bab_sections:
@@ -566,11 +571,10 @@ async def summarize_pdf_per_bab(path: str):
 
     return {
         "file": os.path.basename(path),
-        "sections": results,      # ringkasan per BAB
-        "raw_text": raw_clean,    # isi dokumen (sudah dibersihkan)
-        "bab_sections": bab_sections,  # teks per BAB mentah
+        "sections": results,
+        "raw_text": raw_clean,
+        "bab_sections": bab_sections
     }
-
 
 # EKSPOR DOCX & PDF
 from docx import Document
