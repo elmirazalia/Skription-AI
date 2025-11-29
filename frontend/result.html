@@ -229,8 +229,23 @@ function render() {
     card.appendChild(dl);
 
     const big = document.createElement("div");
-    big.className = "big-frame";
+  big.className = "big-frame";
 
+  // jika tidak deteksi bab
+  if (!doc.sections || doc.sections.length === 0) {
+    big.innerHTML = `
+      <p style="
+        font-size:15px;
+        color:#555;
+        margin:5px 0 15px;">
+        ⚠ Dokumen ini berhasil diproses, tetapi tidak ditemukan struktur BAB seperti skripsi.
+      </p>
+      <p style="font-size:14px;color:#777;">
+        Anda masih dapat menggunakan fitur <b>Tanya Dokumen</b> di bawah untuk menanyakan isi dokumen.
+      </p>
+    `;
+  }
+    
     (doc.sections || []).forEach(s => {
       if (!s.ringkasan_bab?.trim()) return;
 
@@ -364,3 +379,4 @@ render();
 
 </body>
 </html>
+
