@@ -55,13 +55,23 @@ def read_pdf_text(path: str) -> str:
     try:
         from pdf2image import convert_from_path
         import pytesseract
-        pages = convert_from_path(path, dpi=300)
+
+        pages = convert_from_path(path, dpi=350)
+
         ocr_text = ""
-        for pg in pages:
-            ocr_text += pytesseract.image_to_string(pg, lang="eng+ind") + "\n"
-        return clean_text(ocr_text)
+        for i, pg in enumerate(pages):
+            img_text = pytesseract.image_to_string(pg, lang="ind+eng")
+            # Prioritaskan halaman yang mengandung kata 'BIODATA'
+            if "BIODATA" in img_text.upper() or i > len(pages)-3:  
+                ocr_text += "\n--- OCR PAGE %d ---\n" % (i+1)
+                ocr_text += img_text + "\n"
+
+        if len(text) < 200 or len(ocr_text) > len(text)*0.3:
+            return clean_text(text + "\n\n" + ocr_text)
     except:
-        return clean_text(text)
+        pass
+
+    return clean_text(text)
 
 def _enough_text(text, min_chars=200):
     return len(text.strip()) >= min_chars
@@ -821,3 +831,4 @@ async def search_in_file(data: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
