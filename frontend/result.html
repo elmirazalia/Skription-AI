@@ -80,15 +80,18 @@
       padding: 4px 6px;
       border-radius: 6px;
     }
-    .warning-box{
-      background:#ffffff;
-      color:#ffd600;
-      padding:15px;
-      border-radius:8px;
-      border:1px solid #e6c86e;
-      margin-bottom:20px;
-      font-size:15px;
-      font-weight:600;
+    .warning-box {
+        color: #ffb300;              
+        font-weight: 800;
+        font-size: 16px;
+
+        text-shadow:
+            0 0 5px rgba(255, 0, 0, 0.6),
+            0 0 12px rgba(255, 0, 0, 0.8),
+            0 0 18px rgba(255, 0, 0, 1);  /* Glow merah lebih kuat */
+
+        background: transparent !important;
+        border: none !important;
     }
     
   </style>
@@ -236,7 +239,7 @@ function render() {
   if (!doc.sections || doc.sections.length === 0) {
       big.innerHTML = `
         <div class="warning-box">
-            ⚠ <b>Dokumen ini berhasil diproses, tetapi *tidak ditemukan struktur BAB seperti skripsi*.</b><br>
+            ⚠ <b>Dokumen ini berhasil diproses, tetapi tidak ditemukan struktur BAB seperti skripsi.</b><br>
             Anda masih dapat menggunakan fitur <b>Tanya Dokumen</b> di bawah untuk menanyakan isi dokumen.
         </div>
       `;
@@ -375,6 +378,3 @@ render();
 
 </body>
 </html>
-
-
-
