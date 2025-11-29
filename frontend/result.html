@@ -82,42 +82,35 @@
     }
 
     .warning-box {
+        /* Ukuran & Teks */
         font-size: 15px;
-        font-weight: 700;
-        color: #000000; /* teks tetap hitam */
-
-        background: transparent !important;
-        border: none !important;
-
-        /* Inner black text + outer glowing yellow border */
-        text-shadow:
-            0 0 2px #fff200,      /* garis tipis */
-            0 0 5px #ffe800,
-            0 0 10px #ffd900;
-
-        animation: glowPulse 2s infinite ease-in-out;
+        font-weight: 600; /* Sedikit lebih ringan dari 700, masih tebal */
+        color: #333333; /* Warna teks abu-abu gelap */
+        line-height: 1.4;
+    
+        /* Box Styling */
+        padding: 15px 20px;
+        margin: 15px 0;
+        border-radius: 8px; /* Sudut membulat */
+    
+        /* Warna Peringatan */
+        background-color: #fff3cd; /* Kuning sangat muda (Latar) */
+        border: 1px solid #ffe099; /* Garis tipis luar (Outline) */
+      
+        /* Shadow untuk kedalaman */
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); 
+    
+        /* Gaya Ikon (Optional, jika menggunakan pseudo-element) */
+        display: flex;
+        align-items: flex-start;
     }
 
-    /* Animasi glow */
-    @keyframes glowPulse {
-        0% {
-            text-shadow:
-                0 0 2px #fff200,
-                0 0 5px #ffe800,
-                0 0 10px #ffd900;
-        }
-        50% {
-            text-shadow:
-                0 0 4px #ffea00,
-                0 0 8px #ffe800,
-                0 0 16px #ffd900;
-        }
-        100% {
-            text-shadow:
-                0 0 2px #fff200,
-                0 0 5px #ffe800,
-                0 0 10px #ffd900;
-        }
+    /* Penekanan pada ikon (jika ada) */
+    .warning-box::before {
+        content: "❗"; /* Unicode Warning Sign */
+        font-size: 24px;
+        margin-right: 15px;
+        color: #ffc107; /* Kuning yang lebih gelap/standar */
     }
     
   </style>
