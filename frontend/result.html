@@ -87,11 +87,7 @@
         color: #f7d700; /* lebih soft, tidak menyakitkan mata */
         background: transparent !important;
         border: none !important;
-
-        text-shadow:
-            0px 0px 2px #000,
-            0px 0px 4px rgba(0,0,0,0.6);
-}
+    }
 
   </style>
 </head>
@@ -238,7 +234,7 @@ function render() {
   if (!doc.sections || doc.sections.length === 0) {
       big.innerHTML = `
         <div class="warning-box">
-            ⚠︎<b>Dokumen ini berhasil diproses, tetapi tidak ditemukan struktur BAB seperti skripsi.</b><br>
+          ⚠︎ <b>Dokumen ini berhasil diproses, tetapi tidak ditemukan struktur BAB seperti skripsi.</b><br>
             Anda masih dapat menggunakan fitur <b>Tanya Dokumen</b> di bawah untuk menanyakan isi dokumen.
         </div>
       `;
@@ -377,8 +373,6 @@ render();
 
 </body>
 </html>
-
-
 
 
 
