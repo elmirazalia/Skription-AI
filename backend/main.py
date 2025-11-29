@@ -518,6 +518,11 @@ Ringkas menjadi 3–4 poin inti:
         *[asyncio.create_task(_process(sec)) for sec in sections]
     )
 
+if re.search(r"\bBAB\s+[IVXLCDM0-9]+\b", raw_clean, flags=re.IGNORECASE):
+    pass
+else:
+    return { "note": "Dokumen tidak memiliki struktur BAB" }
+
 def detect_non_thesis(text: str) -> bool:
     if not text or len(text) < 1000: return True
     t = text.lower()
@@ -544,14 +549,14 @@ async def summarize_pdf_per_bab(path: str):
     raw_clean = clean_reference_noise(raw_clean)
     raw_clean = remove_subbab(raw_clean)
 
-    if detect_non_thesis(raw_clean):
-        return {
-            "file": os.path.basename(path),
-            "sections": [],
-            "note": "File ini tampaknya bukan skripsi atau tugas akhir.",
-            "raw_text": raw_clean,
-            "bab_sections": []
-        }
+   # if detect_non_thesis(raw_clean):
+    #    return {
+     #       "file": os.path.basename(path),
+      #      "sections": [],
+       #     "note": "File ini tampaknya bukan skripsi atau tugas akhir.",
+        #    "raw_text": raw_clean,
+         #   "bab_sections": []
+        #}
 
     bab_sections = split_by_bab(raw_clean)
     if not bab_sections:
@@ -737,14 +742,13 @@ async def ask_about_file(data: Dict[str, Any]):
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File tidak ditemukan.")
 
-    # load konteks penyimpanan (bab.json + full.txt)
     raw_text, bab_sections = load_doc_context(file_path)
-
     if not raw_text.strip():
         return {"answer": "Dokumen tidak terbaca atau kosong."}
 
     MAX_QA_CHARS = 400_000
 
+    # ================== CONTEXT BUILDER ==================
     if bab_sections:
         relevant = pick_relevant_babs(question, bab_sections, top_k=3)
 
@@ -758,10 +762,14 @@ async def ask_about_file(data: Dict[str, Any]):
             parts.append(f"{sec['judul']}\n{isi}")
 
         context = "\n\n".join(parts)
-    else:
-        context = raw_text[:MAX_QA_CHARS]
 
-    if not context:
+        context += "\n\n--- HALAMAN AWAL ---\n"
+        context += raw_text[:5000]
+
+        context += "\n\n--- HALAMAN AKHIR ---\n"
+        context += raw_text[-4000:]
+
+    else:
         context = raw_text[:MAX_QA_CHARS]
     
     prompt = f"""
@@ -831,4 +839,3 @@ async def search_in_file(data: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
-
