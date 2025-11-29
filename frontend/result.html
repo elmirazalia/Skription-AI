@@ -80,6 +80,16 @@
       padding: 4px 6px;
       border-radius: 6px;
     }
+    .warning-box{
+      background:#fff3cd;
+      color:#8a6d3b;
+      padding:15px;
+      border-radius:8px;
+      border:1px solid #e6c86e;
+      margin-bottom:20px;
+      font-size:15px;
+      font-weight:600;
+  }
   </style>
 </head>
 
@@ -341,14 +351,10 @@ document.getElementById("askBtn").onclick = async () => {
 const warn = sessionStorage.getItem("docuSumWarning");
 if (warn) {
   const warnBox = document.createElement("div");
-  warnBox.style = `
-      background:#fff3cd;color:#8a6d3b;padding:15px;
-      border-radius:8px;border:1px solid #e6c86e;
-      margin-bottom:20px;font-size:15px;font-weight:600;
-  `;
+  warnBox.className = "warning-box";
   warnBox.textContent = `⚠ ${warn}`;
 
-  document.querySelector(".container").prepend(warnBox);
+  document.querySelector(".header").after(warnBox);
 
   sessionStorage.removeItem("docuSumWarning");
 }
