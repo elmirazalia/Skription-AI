@@ -477,3 +477,19 @@ body {
 .yt-guide:hover {
     background: #cc0000;
 }
+
+.book-guide {
+    display: inline-block;
+    margin-top: 10px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: 0.2s ease;
+    color: #fff;
+    background: #1f7cff; /* warna biru */
+}
+
+.book-guide:hover {
+    background: #1666cc; /* sedikit lebih gelap */
+}
