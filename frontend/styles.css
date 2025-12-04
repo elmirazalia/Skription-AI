@@ -477,17 +477,3 @@ body {
 .yt-guide:hover {
     background: #cc0000;
 }
-
-.guide-container {
-    margin-top: 40px;
-    background: #ffffffcc;
-    padding: 20px;
-    border-radius: 12px;
-    backdrop-filter: blur(6px);
-}
-
-.guide-container h2 {
-    margin-bottom: 16px;
-    font-weight: 700;
-    color: #333;
-}
