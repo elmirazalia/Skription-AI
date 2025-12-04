@@ -529,24 +529,43 @@ body {
     transform: translateY(-2px) scale(1.03);
 }
 
-.animated-bg {
+.birds-bg {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    z-index: -1;
-    background: radial-gradient(circle at 20% 20%, #d7e6ff, transparent 60%),
-                radial-gradient(circle at 80% 60%, #bcd4ff, transparent 60%),
-                radial-gradient(circle at 50% 100%, #d0e7fc, transparent 60%);
-    animation: floatGradient 12s infinite alternate ease-in-out;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
 }
 
-@keyframes floatGradient {
+/* burung garis bentuk huruf "m" */
+.bird {
+    position: absolute;
+    width: 60px;
+    height: 30px;
+    opacity: 0.45;
+    animation: flyBird 12s linear infinite;
+}
+
+.bird svg path {
+    stroke: #2c6fbb;       /* biru lembut */
+    stroke-width: 3;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* animasi terbang */
+@keyframes flyBird {
     0% {
-        background-position: 20% 20%, 80% 60%, 50% 100%;
+        transform: translateX(-20%) scale(0.8);
+        opacity: 0;
     }
+    10% { opacity: 0.5; }
     100% {
-        background-position: 25% 25%, 75% 55%, 55% 95%;
+        transform: translateX(120%) scale(1);
+        opacity: 0;
     }
 }
