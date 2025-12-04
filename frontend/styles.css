@@ -466,17 +466,23 @@ body {
     display: inline-block;
     margin-top: 6px;
     padding: 5px 10px;
-    background: #1f7cff;
-    color: #fff;
-    border-radius: 6px;
+    font-size: 0.82rem;
     font-weight: 600;
-    font-size: 0.70rem;
+    color: #1f7cff;                
+    background: rgba(255,0,0,0.1);  /* transparan tipis */
+    border: 1px solid rgba(255,0,0,0.4);
+    border-radius: 6px;
+    backdrop-filter: blur(4px);     /* efek kaca tipis */
     text-decoration: none;
-    transition: 0.2s ease;
+    transition: 0.25s ease;
 }
 
 .yt-guide:hover {
-    background: #1666cc;
+    background: rgba(255,0,0,0.2);
+    border-color: rgba(255,0,0,0.7);
+    box-shadow: 0 0 8px rgba(255,50,50,0.6),
+                0 0 14px rgba(255,0,0,0.3);
+    transform: translateY(-2px) scale(1.03);
 }
 
 .book-guide {
