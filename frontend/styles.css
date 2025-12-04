@@ -490,16 +490,22 @@ body {
     display: inline-block;
     margin-top: 6px;
     padding: 5px 10px;
-    border-radius: 6px;
+    font-size: 0.82rem;
     font-weight: 600;
-    font-size: 0.70rem;
+    color: #1f7cff;                                
+    background: rgba(31,124,255,0.1);   /* biru transparan */
+    border: 1px solid rgba(31,124,255,0.4);
+    border-radius: 6px;
+    backdrop-filter: blur(4px);
     text-decoration: none;
-    transition: 0.2s ease;
-    color: #fff;
-    background: #1f7cff; /* warna biru */
+    transition: 0.25s ease;
 }
 
 .book-guide:hover {
-    background: #1666cc;
+    background: rgba(31,124,255,0.2);               /* biru sedikit lebih pekat */
+    border-color: rgba(31,124,255,0.7);
+    box-shadow: 
+        0 0 8px rgba(31,124,255,0.5),
+        0 0 14px rgba(31,124,255,0.3);               /* glow biru */
+    transform: translateY(-2px) scale(1.03);
 }
-
