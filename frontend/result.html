@@ -85,15 +85,17 @@
       font-size: 14px;
       font-weight: 600;
 
-      background: #EAF3FF;
-      border: 1px solid #BBD4FF;
+      background: #EAF3FF; /* soft */
       color: #2A4F82;
 
       padding: 14px 18px;
-      border-radius: 8px;
+      border-radius: 10px;
 
-      box-shadow: 0 0 10px rgba(255,205,80,0.35),
-                  0 0 18px rgba(255,205,80,0.25);
+      border-left: 4px solid #5B8CEB; /* accent bar */
+      border: 1px solid rgba(91, 140, 235, 0.25);
+
+      backdrop-filter: blur(3px);
+      box-shadow: 0 2px 5px rgba(0,0,0,0.06);
   }
     
   </style>
@@ -380,5 +382,6 @@ render();
 
 </body>
 </html>
+
 
 
