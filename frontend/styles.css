@@ -464,12 +464,13 @@ body {
 
 .yt-guide {
     display: inline-block;
-    margin-top: 10px;
-    padding: 8px 14px;
+    margin-top: 6px;
+    padding: 5px 10px;
     background: #1f7cff;
     color: #fff;
-    border-radius: 8px;
+    border-radius: 6px;
     font-weight: 600;
+    font-size: 0.82rem;
     text-decoration: none;
     transition: 0.2s ease;
 }
@@ -480,10 +481,11 @@ body {
 
 .book-guide {
     display: inline-block;
-    margin-top: 10px;
-    padding: 8px 14px;
-    border-radius: 8px;
+    margin-top: 6px;
+    padding: 5px 10px;
+    border-radius: 6px;
     font-weight: 600;
+    font-size: 0.82rem;
     text-decoration: none;
     transition: 0.2s ease;
     color: #fff;
@@ -493,4 +495,3 @@ body {
 .book-guide:hover {
     background: #1666cc;
 }
-
