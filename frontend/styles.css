@@ -466,7 +466,7 @@ body {
     display: inline-block;
     margin-top: 10px;
     padding: 8px 14px;
-    background: #ff0000;
+    background: #1f7cff;
     color: #fff;
     border-radius: 8px;
     font-weight: 600;
@@ -475,7 +475,7 @@ body {
 }
 
 .yt-guide:hover {
-    background: #cc0000;
+    background: #1666cc;
 }
 
 .book-guide {
@@ -491,5 +491,6 @@ body {
 }
 
 .book-guide:hover {
-    background: #1666cc; /* sedikit lebih gelap */
+    background: #1666cc;
 }
+
