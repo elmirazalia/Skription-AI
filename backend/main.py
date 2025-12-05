@@ -173,23 +173,32 @@ def split_by_bab(text: str):
     if m:
         text = m.group(1)
 
-    # Pecah berdasarkan BAB (angka Romawi atau Arab)
-    parts = re.split(r"(?=BAB\s+(?:[IVXLCDM]+|\d+)(?:\s+[A-Z][^\n]+)?)", text, flags=re.IGNORECASE)
-    
+    # Pecah berdasarkan heading yang ketat
+    parts = re.split(
+        r"(?m)^(BAB\s+(?:[IVXLCDM]+|\d+)\b.*)$",
+        text
+    )
+
     candidates = []
-    for idx, p in enumerate(parts):
-        p = p.strip()
-        if not p or not re.match(r"^BAB\s+(?:[IVXLCDM]+|\d+)\b", p, flags=re.IGNORECASE):
+    for idx in range(1, len(parts), 2):
+        judul = parts[idx].strip()
+        isi   = parts[idx+1].strip() if idx+1 < len(parts) else ""
+
+        # Validasi heading sangat ketat
+        if not re.match(r"^BAB\s+(?:[IVXLCDM]+|\d+)\b", judul, flags=re.IGNORECASE):
             continue
-        lines = p.split("\n", 1)
-        if len(lines) < 2:
+
+        # Minimal isi
+        if len(isi) < 220:
             continue
-        judul = lines[0].strip()
-        isi = lines[1].strip()
+
+        if re.search(r"\bbab\s+\w+", isi, flags=re.IGNORECASE):
+            continue
+
         candidates.append({"judul": judul, "isi": isi, "pos": idx})
 
-    if not candidates:
-        return []
+    candidates.sort(key=lambda x: x["pos"])
+    return candidates
 
     # Kata kunci teknis yang menaikkan skor (bahasa Indonesia + simbol)
     KEYWORDS = [
