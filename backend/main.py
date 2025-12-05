@@ -182,7 +182,7 @@ def split_by_bab(text: str):
 
     # Pecah berdasarkan heading BAB ketat
     parts = re.split(
-        r"(?m)^(BAB\s+(?:[IVXLCDM]{1,3}|\d{1,2}))\s*$",
+        r"(?mi)^(BAB\s+(?:I|II|III|IV|V|\d{1,2}))\s*(?:$|\n)",
         text
     )
 
