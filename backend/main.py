@@ -425,6 +425,8 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
 				continue
 			if "bab ini" in p.lower():
 				continue
+			if "Subbab" in p.lower():
+				continue
 			if "pada bab" in p.lower():
 				continue
 			if p:
@@ -867,3 +869,4 @@ async def search_in_file(data: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
