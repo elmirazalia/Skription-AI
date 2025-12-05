@@ -418,6 +418,11 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
         paragraphs = [p.strip() for p in teks.split("\n") if len(p.strip()) > 40]
         isi_bersih = remove_bab_intro_paragraph("\n".join(paragraphs))
         isi_bersih = clean_reference_noise(isi_bersih)
+		isi_bersih = re.sub(r"(?im)seperti yang sudah dijelaskan pada subbab.*", "", isi_bersih)
+		isi_bersih = re.sub(r"(?im)lihat subbab.*", "", isi_bersih)
+		isi_bersih = re.sub(r"(?im)seperti yang dijelaskan pada.*", "", isi_bersih)
+		isi_bersih = re.sub(r"(?im)pada subbab.*", "", isi_bersih)
+		isi_bersih = re.sub(r"(?im)subbab\s+\d+(\.\d+)*.*", "", isi_bersih)
 
         isi_kompres = compress_for_prompt(isi_bersih, MAX_INPUT_CHARS)
 
