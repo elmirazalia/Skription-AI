@@ -175,9 +175,9 @@ def split_by_bab(text: str):
 
     # Pecah berdasarkan heading yang ketat
     parts = re.split(
-        r"(?m)^(BAB\s+(?:[IVXLCDM]+|\d+)\b.*)$",
-        text
-    )
+		r"(?m)^(BAB\s+(?:[IVXLCDM]{1,3}|\d{1,2})\s*(?:$|\n))",
+		text
+	)
 
     candidates = []
     for idx in range(1, len(parts), 2):
