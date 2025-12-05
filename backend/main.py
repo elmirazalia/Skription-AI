@@ -456,6 +456,8 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
                 seen.add(key)
                 dedup.append(p)
         final_summary = "\n\n".join(dedup)
+        final_summary = re.sub(r"(?i)bab\s*\d+(\.\d+)*", "", final_summary)
+        final_summary = re.sub(r"(?i)\d+(\.\d+){1,3}", "", final_summary)
 
         # TLDR
         judul_bab = sec["judul"].lower()
@@ -885,5 +887,6 @@ async def search_in_file(data: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
 
 
