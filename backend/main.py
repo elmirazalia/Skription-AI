@@ -191,6 +191,13 @@ def split_by_bab(text: str):
         # Minimal isi
         if len(isi) < 220:
             continue
+			
+		# Hapus baris seperti: "bab 3.1.1 bla bla"
+        isi = re.sub(r"(?m)^\s*bab\s+\d+(\.\d+)*.*$", "", isi, flags=re.IGNORECASE)
+
+        # setelah dibersihkan, cek lagi panjang
+        if len(isi) < 220:
+            continue
 
         if re.search(r"\bbab\s+\w+", isi, flags=re.IGNORECASE):
             continue
