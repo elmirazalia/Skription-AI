@@ -430,19 +430,20 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
         out_paras = []
 		for p in llm_ringkas.split("\n"):
 			p = p.strip()
-			# FILTER INTROS
-			if re.search(r'^\s*(bab\s*i{1,3}|bab\s*\d+|bab\s*x|bab\s*v)', p.lower()):
-				continue
-			if "bab ini" in p.lower():
-				continue
-			if "pada Subbab" in p.lower():
-				continue
-			if "pada bab" in p.lower():
-				continue
-			if p:
-				out_paras.append(p)
-			if p.lower().startswith(("bab ", "bab.", "bab-", "3.1", "3.1.1", "3.2", "4.1", "4.2")):
-				continue
+			if not p:
+                continue
+			low = p.lower()
+
+			if re.search(r'\b\d+\.\d+(\.\d+)+\b', low):
+                continue
+				
+			if "subbab" in low:
+                continue
+
+			if re.match(r'^\d+\.\d+', low):
+                continue
+			
+			out_paras.append(p)
 
         dedup = []
         seen = set()
