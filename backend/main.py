@@ -155,8 +155,10 @@ def remove_bab_intro_paragraph(text: str) -> str:
     return "\n".join(final_unique)
 
 def remove_subbab(text: str) -> str:
-    # Hilangkan penomoran subbab (3.1, 3.2.1, dst.)
-    return re.sub(r"\b\d+\.\d+(\.\d+)*\b", "", text)
+    # Hilangkan baris subbab seperti:
+    # 3.1, 3.1.1, BAB 3.1, BAB 3.1.1
+    text = re.sub(r"(?im)^\s*(bab\s*)?\d+(\.\d+){1,3}.*$", "", text)
+    return text
 
 # SPLIT BAB
 def split_by_bab(text: str):
@@ -887,6 +889,7 @@ async def search_in_file(data: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
 
 
 
