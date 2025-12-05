@@ -1,3 +1,4 @@
+
 # main.py
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -416,7 +417,21 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
         llm_tldr, llm_ringkas = extract_parts(llm_output)
 
         # NORMALISASI RINGKASAN
-        out_paras = [p.strip() for p in llm_ringkas.split("\n") if p.strip()]
+        out_paras = []
+		for p in llm_ringkas.split("\n"):
+			p = p.strip()
+			# FILTER INTROS
+			if re.search(r'^\s*(bab\s*i{1,3}|bab\s*\d+|bab\s*x|bab\s*v)', p.lower()):
+				continue
+			if "bab ini" in p.lower():
+				continue
+			if "pada bab" in p.lower():
+				continue
+			if p:
+				out_paras.append(p)
+			if p.lower().startswith(("bab ", "bab.", "bab-", "3.1", "3.2", "4.1", "4.2")):
+				continue
+
         dedup = []
         seen = set()
         for p in out_paras:
