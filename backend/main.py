@@ -554,7 +554,6 @@ def detect_non_thesis(text: str) -> bool:
     return False
 
 async def summarize_pdf_per_bab(path: str):
-    # 1) BACA RAW PDF
     raw = read_pdf_text(path)
     if not raw.strip():
         return {
@@ -565,27 +564,22 @@ async def summarize_pdf_per_bab(path: str):
             "bab_sections": []
         }
 
-    # 2) CLEANING DASAR
     raw_clean = remove_duplicate_paragraphs(raw)
     raw_clean = clean_reference_noise(raw_clean)
     raw_clean = remove_subbab(raw_clean)
 
-    # 3) SPLIT BAB RAW
     bab_sections_raw = split_by_bab(text=raw_clean)
 
-    # FALLBACK jika splitting gagal
     if not bab_sections_raw:
         bab_sections_raw = [{"judul": "BAB I", "isi": raw_clean}]
 
-    # 4) CLEANING UI (yang ditampilkan UI, bukan bahan ringkasan)
     bab_sections_clean = []
     for sec in bab_sections_raw:
         cleaned = sec["isi"]
 
         # Buang subbab, 3.1.1, 4.2.3, dsb
         cleaned = re.sub(r"(?im)\bsubbab\s*\d+(\.\d+)*\b.*", "", cleaned)
-        cleaned = re.sub(r"(?im)\bbab\s*\d+(\.\d+)*\b.*", "", cleaned)
-        cleaned = re.sub(r"(?im)\b\d+(\.\d+)+\b.*", "", cleaned)
+        cleaned = re.sub(r"(?m)^\s*(?:bab\s*)?\d+(\.\d+)+.*$", "", cleaned)
 
         cleaned = cleaned.strip()
 
@@ -594,10 +588,8 @@ async def summarize_pdf_per_bab(path: str):
             "isi": cleaned
         })
 
-    # 5) RINGKASAN via OLLAMA (pakai bab_sections_raw)
     results = await summarize_sections_parallel(bab_sections_raw)
 
-    # 6) RETURN STRUKTUR AKHIR
     return {
         "file": os.path.basename(path),
         "sections": results,          # hasil ringkasan
@@ -885,3 +877,4 @@ async def search_in_file(data: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
