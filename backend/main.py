@@ -421,6 +421,10 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
         teks = (sec.get("isi") or "").strip()
         if len(teks) < 80:
             return {"judul": sec["judul"], "ringkasan_bab": "", "tldr": ""}
+        # MENGHAPUS SUBBAB SPESIFIK: 3.1 / 3.1.1 / 4.2.3
+        teks = re.sub(r"(?m)^\s*(?:\d+\.){1,3}.*$", "", teks)
+        teks = re.sub(r"(?im)^.*bab\s+\d+(\.\d+)*.*$", "", teks)
+        teks = re.sub(r"(?im)^.*subbab\s+\d+(\.\d+)*.*$", "", teks)
 
         # BERSIHKAN TEKS
         paragraphs = [p.strip() for p in teks.split("\n") if len(p.strip()) > 40]
@@ -881,4 +885,5 @@ async def search_in_file(data: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
 
