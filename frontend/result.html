@@ -257,6 +257,16 @@ function render() {
     (doc.sections || []).forEach(s => {
       if (!s.ringkasan_bab?.trim()) return;
 
+      // VALIDASI JUDUL BAB SEBENARNYA
+      const realBabList = ["bab i", "bab ii", "bab iii", "bab iv", "bab v",
+                           "bab 1","bab 2","bab 3","bab 4","bab 5"];
+      const judul = (s.judul || "").toLowerCase().trim();
+
+      if (!realBabList.includes(judul)) {
+        // Skip subbab palsu
+        return;
+      }
+      
       const section = document.createElement("div");
       section.className = "section";
 
@@ -387,4 +397,5 @@ render();
 
 </body>
 </html>
+
 
