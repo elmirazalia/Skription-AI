@@ -182,7 +182,7 @@ def split_by_bab(text: str):
 
     # Pecah berdasarkan heading BAB ketat
     parts = re.split(
-        r"(?mi)^(BAB\s+(?:I|II|III|IV|V|\d{1,2}))\s*(?:$|\n)",
+        r"(?mi)^(BAB[\s]+(?:I|II|III|IV|V|VI|VII|VIII|IX|X|\b1\b|\b2\b|\b3\b|\b4\b|\b5\b))\s*$",
         text
     )
 
@@ -203,6 +203,9 @@ def split_by_bab(text: str):
         # Bersihkan internal 'bab 4.1.2 ...'
         isi = re.sub(r"(?im)^\s*bab\s+\d+(\.\d+)*.*$", "", isi)
         isi = re.sub(r"(?im)^\s*\d+(\.\d+)+.*$", "", isi)
+        # Bersihkan header subbab 3.1 / 4.2 / 3.1.1
+        isi = re.sub(r"(?m)^\s*\d+(\.\d+){1,3}.*$", "", isi)
+        isi = re.sub(r"(?i)\bsubbab\s+\d+(\.\d+)*\b.*", "", isi)
 
         if len(isi) < 200:
             continue
@@ -877,4 +880,5 @@ async def search_in_file(data: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
 
