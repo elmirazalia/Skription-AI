@@ -432,6 +432,7 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
         isi_bersih = clean_reference_noise(isi_bersih)
 
         # Hapus rujukan subbab di dalam kalimat
+        isi_bersih = re.sub(r'\b\d+(\.\d+){1,3}\b', '', isi_bersih)
         isi_bersih = re.sub(r"(?im)^.*subbab\s+\d+(\.\d+)*.*$", "", isi_bersih)
         isi_bersih = re.sub(r"(?im)^.*bab\s+\d+(\.\d+)*.*$", "", isi_bersih)
 
@@ -598,11 +599,11 @@ async def summarize_pdf_per_bab(path: str):
             "isi": cleaned
         })
 
-    results = await summarize_sections_parallel(bab_sections_raw)
+    results = await summarize_sections_parallel(bab_sections_clean)
 
     return {
         "file": os.path.basename(path),
-        "sections": result,
+        "sections": results,
         "raw_text": raw_clean,        # full teks
         "bab_sections": bab_sections_clean  # untuk UI
     }
@@ -887,8 +888,3 @@ async def search_in_file(data: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
-
-
-
-
-
