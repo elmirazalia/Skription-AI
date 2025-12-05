@@ -594,28 +594,9 @@ async def summarize_pdf_per_bab(path: str):
 
     results = await summarize_sections_parallel(bab_sections_raw)
 
-    safe_sections=[]
-    for sec in results:
-        jud = sec["judul"].strip()
-
-        # hilangkan subbab dari judul (3.1 / 3.1.1)
-        jud = re.sub(r'\b\d+(\.\d+)+\b', '', jud)
-
-        # hilangkan huruf setelah bab (bab 4.1 → bab 4)
-        jud = re.sub(r'\bbab\s+(\d+)\.\d+\b', r'BAB \1', jud, flags=re.IGNORECASE)
-
-        # normalisasi kapital
-        jud = jud.upper()
-
-        safe_sections.append({
-            "judul": jud,
-            "ringkasan_bab": sec["ringkasan_bab"],
-            "tldr": sec["tldr"]
-        })
-
     return {
         "file": os.path.basename(path),
-        "sections": safe_sections, 
+        "sections": result,
         "raw_text": raw_clean,        # full teks
         "bab_sections": bab_sections_clean  # untuk UI
     }
@@ -900,3 +881,4 @@ async def search_in_file(data: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
