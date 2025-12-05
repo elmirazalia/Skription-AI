@@ -318,7 +318,7 @@ SUM_PROMPT_TEMPLATE = (
     "  • BAB V → kesimpulan & saran\n"
     "- Bahasa ilmiah, padat, tidak repetitif.\n"
     "Aturan tambahan:\n"
-    "- DILARANG membuat heading baru seperti "bab 3.1.1.\n"
+    "- DILARANG membuat heading baru seperti "bab 3.1.1."\n"
     "- Jangan mengulang kalimat dari teks asli.\n"
     "- Jangan membuat 2 paragraf yang maknanya sama.\n"
     "- Hilangkan teks meta seperti 'Bab ini membahas...' dan referensi.\n"
@@ -881,6 +881,7 @@ async def search_in_file(data: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
 
 
 
