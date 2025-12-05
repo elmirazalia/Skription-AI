@@ -1,4 +1,3 @@
-
 # main.py
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -107,6 +106,17 @@ def remove_duplicate_paragraphs(text: str) -> str:
         return text
 
     paras = [p.strip() for p in text.split("\n") if p.strip()]
+	# Filter referensi ke subbab (3.1.1, 4.2.3, dst)
+	if re.search(r'\b\d+\.\d+(\.\d+)+\b', p):
+    	continue
+
+	# Filter "pada Subbab ..." atau "Subbab ..."
+	if re.search(r'\bsubbab\b', p.lower()):
+    	continue
+
+	# Filter kalimat yang mengacu ke nomor subbagian
+	if re.search(r'\bpada\s+subbab\s+\d', p.lower()):
+   	 continue
     unique = []
     seen = set()
 
@@ -869,5 +879,3 @@ async def search_in_file(data: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
-
-
