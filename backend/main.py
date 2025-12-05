@@ -448,6 +448,9 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
                 seen.add(key)
                 dedup.append(p)
         final_summary = "\n\n".join(dedup)
+        final_summary = re.sub(r"(?im)^bab\s*\d+(\.\d+)*.*$", "", final_summary)
+        final_summary = re.sub(r"(?im)^\d+(\.\d+)*\s+.*$", "", final_summary)
+        final_summary = final_summary.strip()
 
         # TLDR
         judul_bab = sec["judul"].lower()
@@ -532,6 +535,8 @@ Ringkas menjadi 3–4 poin inti:
         # GENERATE TLDR FINAL
         tldr_final = await asyncio.to_thread(_ollama_generate, tldr_prompt)
         tldr_final = (tldr_final or "").strip()
+        tldr_final = re.sub(r"(?im)^bab\s*\d+(\.\d+)*.*$", "", tldr_final)
+        tldr_final = tldr_final.strip()
 
         return {
             "judul": sec["judul"],
@@ -877,4 +882,3 @@ async def search_in_file(data: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
-
