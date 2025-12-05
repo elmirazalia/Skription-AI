@@ -154,42 +154,42 @@ def remove_bab_intro_paragraph(text: str) -> str:
 
     return "\n".join(final_unique)
 
-def remove_subbab(text: str) -> str:
+# def remove_subbab(text: str) -> str:
     # Hilangkan penomoran subbab (3.1, 3.2.1, dst.)
-    return re.sub(r"\b\d+\.\d+(\.\d+)*\b", "", text)
+    #return re.sub(r"\b\d+\.\d+(\.\d+)*\b", "", text)
 
-# SPLIT BAB
 def split_by_bab(text: str):
-    # Buang elemen non-bab
     text = re.sub(r"DAFTAR\s+ISI.*?(?=BAB\s+I\b|BAB\s+1\b)", "", text, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r"DAFTAR\s+(GAMBAR|TABEL).*?(?=BAB\s+I\b|BAB\s+1\b)", "", text, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r"DAFTAR PUSTAKA.*", "", text, flags=re.IGNORECASE)
     text = re.sub(r"LAMPIRAN.*", "", text, flags=re.IGNORECASE)
-    text = re.sub(r"^.*\.{5,}.*$", "", text, flags=re.MULTILINE)
-    text = re.sub(r"(?m)^\s*[ivxlcdm]+\s*$", "", text, flags=re.IGNORECASE)
 
-    # Mulai dari BAB I (jika ada)
     m = re.search(r"(BAB\s+(?:I|1)\b.*)", text, flags=re.IGNORECASE | re.DOTALL)
     if m:
         text = m.group(1)
 
-    # Pecah berdasarkan BAB (angka Romawi atau Arab)
     parts = re.split(r"(?=BAB\s+(?:[IVXLCDM]+|\d+)(?:\s+[A-Z][^\n]+)?)", text, flags=re.IGNORECASE)
-    
+
     candidates = []
     for idx, p in enumerate(parts):
         p = p.strip()
-        if not p or not re.match(r"^BAB\s+(?:[IVXLCDM]+|\d+)\b", p, flags=re.IGNORECASE):
-            continue
         lines = p.split("\n", 1)
         if len(lines) < 2:
             continue
-        judul = lines[0].strip()
+
+        first_line = lines[0].strip()
+
+        if re.match(r"^\d+(\.\d+)+", first_line):
+            continue
+
+        if not re.match(r"^BAB\s+(?:[IVXLCDM]+|\d+)\b", first_line, flags=re.IGNORECASE):
+            continue
+
+        judul = first_line
         isi = lines[1].strip()
         candidates.append({"judul": judul, "isi": isi, "pos": idx})
 
-    if not candidates:
-        return []
+    return candidates
 
     # Kata kunci teknis yang menaikkan skor (bahasa Indonesia + simbol)
     KEYWORDS = [
@@ -539,7 +539,7 @@ async def summarize_pdf_per_bab(path: str):
 
     raw_clean = remove_duplicate_paragraphs(raw)
     raw_clean = clean_reference_noise(raw_clean)
-    raw_clean = remove_subbab(raw_clean)
+    # raw_clean = remove_subbab(raw_clean)
 
     # warning non bab
     if not re.search(r"\bBAB\s+[IVXLCDM0-9]+\b", raw_clean, flags=re.IGNORECASE):
@@ -624,7 +624,7 @@ def load_doc_context(file_path: Path):
         pdf_raw = read_pdf_text(str(file_path))
         pdf_clean = remove_duplicate_paragraphs(pdf_raw)
         pdf_clean = clean_reference_noise(pdf_clean)
-        pdf_clean = remove_subbab(pdf_clean)
+        # pdf_clean = remove_subbab(pdf_clean)
 
         raw_text = raw_text or pdf_clean
         if not bab_sections:
