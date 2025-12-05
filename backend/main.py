@@ -543,7 +543,7 @@ async def summarize_pdf_per_bab(path: str):
 
     # warning non bab
     if not re.search(r"\bBAB\s+[IVXLCDM0-9]+\b", raw_clean, flags=re.IGNORECASE):
-    hasil_note = "⚠ Dokumen tidak sepenuhnya berformat skripsi, tetapi tetap diproses."
+        hasil_note = "⚠ Dokumen tidak sepenuhnya berformat skripsi, tetapi tetap diproses."
 
     # non skripsi
     # if detect_non_thesis(raw_clean):
@@ -686,6 +686,19 @@ async def upload_file(file: UploadFile = File(...)):
     file_path = UPLOAD_DIR / file.filename
     with open(file_path, "wb") as f:
         f.write(await file.read())
+    
+    # ---- Antivirus Scan ----
+    scan_result = os.popen(f"clamscan --infected --no-summary {str(file_path)}").read()
+
+    if "FOUND" in scan_result:
+        os.remove(file_path)
+        raise HTTPException(
+            status_code=400,
+            detail="File terdeteksi virus dan telah ditolak."
+        )
+
+    print("[SCAN] ClamAV result:", scan_result)
+
     try:
         hasil = await summarize_pdf_per_bab(str(file_path))
     except Exception as e:
@@ -835,4 +848,3 @@ async def search_in_file(data: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
-
