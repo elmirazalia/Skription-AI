@@ -160,52 +160,56 @@ def remove_subbab(text: str) -> str:
 
 # SPLIT BAB
 def split_by_bab(text: str):
-    # Buang elemen non-bab
-    text = re.sub(r"DAFTAR\s+ISI.*?(?=BAB\s+I\b|BAB\s+1\b)", "", text, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r"DAFTAR\s+(GAMBAR|TABEL).*?(?=BAB\s+I\b|BAB\s+1\b)", "", text, flags=re.DOTALL | re.IGNORECASE)
+    # Hapus daftar isi, daftar tabel/gambar, daftar pustaka, lampiran
+    text = re.sub(r"DAFTAR\s+ISI.*?(?=BAB\s+[IVXLCDM1]\b)", "", text,
+                  flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r"DAFTAR\s+(GAMBAR|TABEL).*?(?=BAB\s+[IVXLCDM1]\b)", "", text,
+                  flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r"DAFTAR PUSTAKA.*", "", text, flags=re.IGNORECASE)
     text = re.sub(r"LAMPIRAN.*", "", text, flags=re.IGNORECASE)
+
+    # Hilangkan titik-titik (.......) yang sering mengacaukan header
     text = re.sub(r"^.*\.{5,}.*$", "", text, flags=re.MULTILINE)
+
+    # Buang halaman romawi (i, ii, iii) yang berdiri sendiri
     text = re.sub(r"(?m)^\s*[ivxlcdm]+\s*$", "", text, flags=re.IGNORECASE)
 
-    # Mulai dari BAB I (jika ada)
-    m = re.search(r"(BAB\s+(?:I|1)\b.*)", text, flags=re.IGNORECASE | re.DOTALL)
+    # Mulai dari BAB I/1 (abaikan halaman depan)
+    m = re.search(r"(BAB\s+(?:I|II|III|IV|V|1|2|3|4|5)\b.*)", text,
+                  flags=re.IGNORECASE | re.DOTALL)
     if m:
         text = m.group(1)
 
-    # Pecah berdasarkan heading yang ketat
+    # Pecah berdasarkan heading BAB ketat
     parts = re.split(
-		r"(?m)^(BAB\s+(?:[IVXLCDM]{1,3}|\d{1,2})\s*(?:$|\n))",
-		text
-	)
+        r"(?m)^(BAB\s+(?:[IVXLCDM]{1,3}|\d{1,2}))\s*$",
+        text
+    )
 
-    candidates = []
-    for idx in range(1, len(parts), 2):
-        judul = parts[idx].strip()
-        isi   = parts[idx+1].strip() if idx+1 < len(parts) else ""
+    result = []
+    for i in range(1, len(parts), 2):
+        judul = parts[i].strip()
+        isi = parts[i+1].strip() if (i+1 < len(parts)) else ""
 
-        # Validasi heading sangat ketat
-        if not re.match(r"^BAB\s+(?:[IVXLCDM]+|\d+)\b", judul, flags=re.IGNORECASE):
+        # Filter keras:
+        # Jangan pernah menangkap "Subbab 4.1"
+        if re.search(r"\b\d+\.\d+(\.\d+)*\b", judul):
             continue
 
-        # Minimal isi
-        if len(isi) < 220:
-            continue
-			
-		# Hapus baris seperti: "bab 3.1.1 bla bla"
-        isi = re.sub(r"(?m)^\s*bab\s+\d+(\.\d+)*.*$", "", isi, flags=re.IGNORECASE)
-
-        # setelah dibersihkan, cek lagi panjang
-        if len(isi) < 220:
+        # Minimal konten banget (kalau terlalu sedikit, ignore)
+        if len(isi) < 200:
             continue
 
-        if re.search(r"\bbab\s+\w+", isi, flags=re.IGNORECASE):
+        # Bersihkan internal 'bab 4.1.2 ...'
+        isi = re.sub(r"(?im)^\s*bab\s+\d+(\.\d+)*.*$", "", isi)
+        isi = re.sub(r"(?im)^\s*\d+(\.\d+)+.*$", "", isi)
+
+        if len(isi) < 200:
             continue
 
-        candidates.append({"judul": judul, "isi": isi, "pos": idx})
+        result.append({"judul": judul, "isi": isi})
 
-    candidates.sort(key=lambda x: x["pos"])
-    return candidates
+    return result
 
     # Kata kunci teknis yang menaikkan skor (bahasa Indonesia + simbol)
     KEYWORDS = [
@@ -550,6 +554,7 @@ def detect_non_thesis(text: str) -> bool:
     return False
 
 async def summarize_pdf_per_bab(path: str):
+    # 1) BACA RAW PDF
     raw = read_pdf_text(path)
     if not raw.strip():
         return {
@@ -560,35 +565,44 @@ async def summarize_pdf_per_bab(path: str):
             "bab_sections": []
         }
 
+    # 2) CLEANING DASAR
     raw_clean = remove_duplicate_paragraphs(raw)
     raw_clean = clean_reference_noise(raw_clean)
     raw_clean = remove_subbab(raw_clean)
 
-    # warning non bab
-    if not re.search(r"\bBAB\s+[IVXLCDM0-9]+\b", raw_clean, flags=re.IGNORECASE):
-        hasil_note = "⚠ Dokumen tidak sepenuhnya berformat skripsi, tetapi tetap diproses."
+    # 3) SPLIT BAB RAW
+    bab_sections_raw = split_by_bab(text=raw_clean)
 
-    # non skripsi
-    # if detect_non_thesis(raw_clean):
-    #     return {
-    #         "file": os.path.basename(path),
-    #         "sections": [],
-    #         "note": "File ini tampaknya bukan skripsi atau tugas akhir.",
-    #         "raw_text": raw_clean,
-    #         "bab_sections": []
-    #     }
+    # FALLBACK jika splitting gagal
+    if not bab_sections_raw:
+        bab_sections_raw = [{"judul": "BAB I", "isi": raw_clean}]
 
-    bab_sections = split_by_bab(raw_clean)
-    if not bab_sections:
-        bab_sections = [{"judul": "BAB I", "isi": raw_clean}]
+    # 4) CLEANING UI (yang ditampilkan UI, bukan bahan ringkasan)
+    bab_sections_clean = []
+    for sec in bab_sections_raw:
+        cleaned = sec["isi"]
 
-    results = await summarize_sections_parallel(bab_sections)
+        # Buang subbab, 3.1.1, 4.2.3, dsb
+        cleaned = re.sub(r"(?im)\bsubbab\s*\d+(\.\d+)*\b.*", "", cleaned)
+        cleaned = re.sub(r"(?im)\bbab\s*\d+(\.\d+)*\b.*", "", cleaned)
+        cleaned = re.sub(r"(?im)\b\d+(\.\d+)+\b.*", "", cleaned)
 
+        cleaned = cleaned.strip()
+
+        bab_sections_clean.append({
+            "judul": sec["judul"],
+            "isi": cleaned
+        })
+
+    # 5) RINGKASAN via OLLAMA (pakai bab_sections_raw)
+    results = await summarize_sections_parallel(bab_sections_raw)
+
+    # 6) RETURN STRUKTUR AKHIR
     return {
         "file": os.path.basename(path),
-        "sections": results,
-        "raw_text": raw_clean,
-        "bab_sections": bab_sections
+        "sections": results,          # hasil ringkasan
+        "raw_text": raw_clean,        # full teks
+        "bab_sections": bab_sections_clean  # untuk UI
     }
 
 # EKSPOR DOCX & PDF
