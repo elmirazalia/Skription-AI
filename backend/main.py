@@ -159,15 +159,18 @@ def remove_bab_intro_paragraph(text: str) -> str:
     #return re.sub(r"\b\d+\.\d+(\.\d+)*\b", "", text)
 
 def split_by_bab(text: str):
+    # buang awalan daftar isi, gambar, tabel, lampiran
     text = re.sub(r"DAFTAR\s+ISI.*?(?=BAB\s+I\b|BAB\s+1\b)", "", text, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r"DAFTAR\s+(GAMBAR|TABEL).*?(?=BAB\s+I\b|BAB\s+1\b)", "", text, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r"DAFTAR PUSTAKA.*", "", text, flags=re.IGNORECASE)
     text = re.sub(r"LAMPIRAN.*", "", text, flags=re.IGNORECASE)
 
+    # ambil mulai dari BAB I
     m = re.search(r"(BAB\s+(?:I|1)\b.*)", text, flags=re.IGNORECASE | re.DOTALL)
     if m:
         text = m.group(1)
 
+    # pecah berdasarkan BAB
     parts = re.split(r"(?=BAB\s+(?:[IVXLCDM]+|\d+)(?:\s+[A-Z][^\n]+)?)", text, flags=re.IGNORECASE)
 
     candidates = []
@@ -182,10 +185,11 @@ def split_by_bab(text: str):
         if re.match(r"^\d+(\.\d+)+", first_line):
             continue
 
+        # acc kalau format BAB benar
         if not re.match(r"^BAB\s+(?:[IVXLCDM]+|\d+)\b", first_line, flags=re.IGNORECASE):
             continue
 
-        judul = first_line
+        judul = re.sub(r"\s+", " ", first_line).strip()  # normalisasi
         isi = lines[1].strip()
         candidates.append({"judul": judul, "isi": isi, "pos": idx})
 
