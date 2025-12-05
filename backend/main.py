@@ -423,12 +423,12 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
         isi_bersih = remove_bab_intro_paragraph("\n".join(paragraphs))
         isi_bersih = clean_reference_noise(isi_bersih)
 
-        # HILANGKAN seluruh referensi subbab
+        # Hapus rujukan subbab di dalam kalimat
         isi_bersih = re.sub(r"(?im)^.*subbab\s+\d+(\.\d+)*.*$", "", isi_bersih)
         isi_bersih = re.sub(r"(?im)^.*bab\s+\d+(\.\d+)*.*$", "", isi_bersih)
-        isi_bersih = re.sub(r"(?im)^.*pada subbab.*$", "", isi_bersih)
-        isi_bersih = re.sub(r"(?im)^.*seperti yang dijelaskan.*$", "", isi_bersih)
-        isi_bersih = re.sub(r"(?im)^.*lihat subbab.*$", "", isi_bersih)
+
+        # Hapus baris header “3.1 / 3.1.1 / 4.2.3”
+        isi_bersih = re.sub(r"(?m)^\s*(?:\d+\.){1,3}.*$", "", isi_bersih)
 
         isi_kompres = compress_for_prompt(isi_bersih, MAX_INPUT_CHARS)
 
