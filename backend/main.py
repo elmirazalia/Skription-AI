@@ -425,13 +425,13 @@ async def summarize_sections_parallel(sections: List[Dict[str, str]]) -> List[Di
 				continue
 			if "bab ini" in p.lower():
 				continue
-			if "Subbab" in p.lower():
+			if "pada Subbab" in p.lower():
 				continue
 			if "pada bab" in p.lower():
 				continue
 			if p:
 				out_paras.append(p)
-			if p.lower().startswith(("bab ", "bab.", "bab-", "3.1", "3.2", "4.1", "4.2")):
+			if p.lower().startswith(("bab ", "bab.", "bab-", "3.1", "3.1.1", "3.2", "4.1", "4.2")):
 				continue
 
         dedup = []
@@ -869,4 +869,5 @@ async def search_in_file(data: Dict[str, str]):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
 
