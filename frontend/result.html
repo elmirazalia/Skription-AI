@@ -267,7 +267,7 @@ function render() {
         .replace(/\s+/g," ")
         .trim();
 
-      let valid = realBabList.some(b => judul.startsWith(b));
+      let valid = /^bab\s+(i|ii|iii|iv|v|1|2|3|4|5)\b/.test(judul);
       
       console.log("Judul asli:", s.judul, " → normalisasi:", judul, " → valid:", valid);
 
@@ -403,3 +403,4 @@ render();
 
 </body>
 </html>
+
