@@ -169,17 +169,13 @@ function makeTLDR(t) {
   
 function makeBulletDOM(t) {
   const ul = document.createElement("ul");
-  const sentences = t.split(/(?<=\.)\s+/); 
-
-  sentences.forEach(s => {
-    s = s.trim();
-    if (s.length > 0) {
+  t.split(/\n+/).forEach(p => {     // Split berdasarkan paragraf, bukan titik
+    if(p.trim().length > 0){
       const li = document.createElement("li");
-      li.textContent = s;
+      li.textContent = p.trim();
       ul.appendChild(li);
     }
   });
-
   return ul;
 }
 
