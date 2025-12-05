@@ -224,7 +224,6 @@ function render() {
 
     const dl = document.createElement("div");
     dl.className = "download-bar";
-
     if (doc.download_pdf) {
       let b = document.createElement("button");
       b.className = "btn-primary";
@@ -242,24 +241,12 @@ function render() {
     card.appendChild(dl);
 
     const big = document.createElement("div");
-  big.className = "big-frame";
+    big.className = "big-frame";
 
-  // jika tidak deteksi bab
-  if (!doc.sections || doc.sections.length === 0) {
-      big.innerHTML = `
-        <div class="warning-box">
-          ⚠︎ <b>Dokumen ini berhasil diproses, tetapi tidak ditemukan struktur BAB seperti skripsi.</b><br>
-            Anda masih dapat menggunakan fitur <b>Tanya Dokumen</b> di bawah untuk menanyakan isi dokumen.
-        </div>
-      `;
-    }
-    
+    let lastSection = null;  // penting!
+
     (doc.sections || []).forEach(s => {
       if (!s.ringkasan_bab?.trim()) return;
-
-      // VALIDASI JUDUL BAB SEBENARNYA
-      const realBabList = ["bab 1","bab 2","bab 3","bab 4","bab 5",
-                     "bab i","bab ii","bab iii","bab iv","bab v"];
 
       let judul = (s.judul || "")
         .toLowerCase()
@@ -267,53 +254,63 @@ function render() {
         .replace(/\s+/g," ")
         .trim();
 
-      let valid = /^bab\s+(i|ii|iii|iv|v|1|2|3|4|5)\b/.test(judul);
-      
-      console.log("Judul asli:", s.judul, " → normalisasi:", judul, " → valid:", valid);
+      let isBAB = /^bab\s+(i|ii|iii|iv|v|1|2|3|4|5)\b/.test(judul);
 
-      if (!valid) return;
-  
-      const section = document.createElement("div");
-      section.className = "section";
+      // === KALO BAB ===
+      if (isBAB) {
+        const section = document.createElement("div");
+        section.className = "section";
 
-      const secHead = document.createElement("div");
-      secHead.className = "sec-head";
+        const secHead = document.createElement("div");
+        secHead.className = "sec-head";
 
-      const chev = document.createElement("span");
-      chev.className = "chev open";
-      chev.textContent = "▶";
+        const chev = document.createElement("span");
+        chev.className = "chev open";
+        chev.textContent = "▶";
 
-      const title = document.createElement("h3");
-      title.textContent = s.judul;
+        const title = document.createElement("h3");
+        title.textContent = s.judul;
 
-      secHead.appendChild(title);
-      secHead.appendChild(chev);
+        secHead.appendChild(title);
+        secHead.appendChild(chev);
 
-      const content = document.createElement("div");
-      content.className = "sec-content";
+        const content = document.createElement("div");
+        content.className = "sec-content";
 
-      const tldr = document.createElement("div");
-      tldr.className = "tldr";
-      tldr.style.display = SHOW_TLDR ? "block" : "none";
-      tldr.textContent = makeTLDR(s.ringkasan_bab);
+        const tldr = document.createElement("div");
+        tldr.className = "tldr";
+        tldr.style.display = SHOW_TLDR ? "block" : "none";
+        tldr.textContent = makeTLDR(s.ringkasan_bab);
 
-      const bullets = document.createElement("div");
-      bullets.className = "bullet-text";
-      bullets.appendChild(makeBulletDOM(s.ringkasan_bab));
+        const bullets = document.createElement("div");
+        bullets.className = "bullet-text";
+        bullets.appendChild(makeBulletDOM(s.ringkasan_bab));
 
-      content.appendChild(tldr);
-      content.appendChild(bullets);
+        content.appendChild(tldr);
+        content.appendChild(bullets);
 
-      secHead.onclick = () => {
-        const open = content.style.display !== "none";
-        content.style.display = open ? "none" : "block";
-        chev.classList.toggle("open", !open);
-      };
+        secHead.onclick = () => {
+          const open = content.style.display !== "none";
+          content.style.display = open ? "none" : "block";
+          chev.classList.toggle("open", !open);
+        };
 
-      section._content = content;
-      section.appendChild(secHead);
-      section.appendChild(content);
-      big.appendChild(section);
+        section._content = content;
+        section.appendChild(secHead);
+        section.appendChild(content);
+        big.appendChild(section);
+
+        lastSection = section;  // simpan referensi
+      }
+
+      // === SUBBAB (bukan BAB) ===
+      else if (lastSection) {
+        const bullets = document.createElement("div");
+        bullets.className = "bullet-text";
+        bullets.appendChild(makeBulletDOM(s.ringkasan_bab));
+
+        lastSection._content.appendChild(bullets);
+      }
     });
 
     card.appendChild(big);
@@ -403,4 +400,3 @@ render();
 
 </body>
 </html>
-
