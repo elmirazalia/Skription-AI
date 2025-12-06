@@ -243,7 +243,19 @@ function render() {
     const big = document.createElement("div");
     big.className = "big-frame";
 
-    let lastSection = null;  // penting!
+    let lastSection = null;  
+    
+    if (!doc.sections || doc.sections.length === 0) {
+      big.innerHTML = `
+        <div class="warning-box">
+          ⚠︎ <b>Dokumen ini berhasil diproses, tetapi tidak ditemukan struktur BAB seperti skripsi.</b><br>
+          Anda masih dapat menggunakan fitur <b>Tanya Dokumen</b> di bawah untuk menanyakan isi dokumen.
+         </div>
+      `;
+      card.appendChild(big);
+      container.appendChild(card);
+      return;
+    }
 
     (doc.sections || []).forEach(s => {
       if (!s.ringkasan_bab?.trim()) return;
