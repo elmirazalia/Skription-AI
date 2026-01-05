@@ -1,4 +1,4 @@
-gemma2:9b
+llama3.1:70b
 
 Jika ingin menjalankan pada terminal lokal:
 - Install segala yang tertera di `\backend\requierements.txt` `pip install -r requirements.txt`
